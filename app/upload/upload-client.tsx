@@ -2,6 +2,15 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { STATUS_LABEL, type Postcard } from "@/lib/types";
+
+type DuplicateCandidate = {
+  postcard: Postcard;
+  distance: number;
+};
+
+type DuplicateStatus = "idle" | "checking" | "done" | "unavailable" | "error";
+const DUPLICATE_DISTANCE_THRESHOLD = 16;
 
 // 在浏览器里把图片缩放 + 压成 JPEG，控制在 Vercel 函数 4.5MB 请求体限制内，
 // 同时明显加快上传。失败（如 HEIC 浏览器无法解码）时回退用原文件。
@@ -48,21 +57,112 @@ async function compressImage(
   return { blob, filename: `${base}.jpg` };
 }
 
+async function imageToDataUrl(file: Blob) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function dctCoefficient(values: number[], width: number, u: number, v: number) {
+  let sum = 0;
+  for (let y = 0; y < width; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      sum +=
+        values[y * width + x] *
+        Math.cos(((2 * x + 1) * u * Math.PI) / (2 * width)) *
+        Math.cos(((2 * y + 1) * v * Math.PI) / (2 * width));
+    }
+  }
+  return sum;
+}
+
+function median(values: number[]) {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+}
+
+async function computeImageHash(file: Blob): Promise<string> {
+  const dataUrl = await imageToDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("无法解码该图片"));
+    image.src = dataUrl;
+  });
+
+  const width = 32;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = width;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("无法处理图片");
+  ctx.drawImage(img, 0, 0, width, width);
+
+  const pixels = ctx.getImageData(0, 0, width, width).data;
+  const gray: number[] = [];
+  for (let i = 0; i < pixels.length; i += 4) {
+    gray.push(pixels[i] * 0.299 + pixels[i + 1] * 0.587 + pixels[i + 2] * 0.114);
+  }
+
+  const lowFrequency: number[] = [];
+  for (let v = 0; v < 8; v += 1) {
+    for (let u = 0; u < 8; u += 1) {
+      lowFrequency.push(dctCoefficient(gray, width, u, v));
+    }
+  }
+
+  const threshold = median(lowFrequency.slice(1));
+  const bits = lowFrequency.map((value, index) => (index > 0 && value > threshold ? "1" : "0"));
+  let hash = "";
+  for (let i = 0; i < bits.length; i += 4) {
+    hash += parseInt(bits.slice(i, i + 4).join(""), 2).toString(16);
+  }
+  return hash;
+}
+
+function hammingDistanceHex(a: string, b: string) {
+  let distance = 0;
+  for (let i = 0; i < a.length; i += 1) {
+    const diff = parseInt(a[i], 16) ^ parseInt(b[i], 16);
+    distance += diff.toString(2).replaceAll("0", "").length;
+  }
+  return distance;
+}
+
+function fmtDate(v: string | null): string | null {
+  return v ? v.slice(0, 10) : null;
+}
+
 export default function UploadClient() {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
+  const checkSeqRef = useRef(0);
   const [preview, setPreview] = useState<string | null>(null);
   const [recipientName, setRecipientName] = useState("");
   const [note, setNote] = useState("");
   const [sentAt, setSentAt] = useState("");
   const [arrivedAt, setArrivedAt] = useState("");
+  const [imageHash, setImageHash] = useState<string | null>(null);
+  const [duplicateStatus, setDuplicateStatus] = useState<DuplicateStatus>("idle");
+  const [duplicateCandidates, setDuplicateCandidates] = useState<DuplicateCandidate[]>([]);
+  const [duplicateError, setDuplicateError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
-  const onPick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const seq = checkSeqRef.current + 1;
+    checkSeqRef.current = seq;
     const file = e.target.files?.[0];
     setError(null);
+    setImageHash(null);
+    setDuplicateStatus("idle");
+    setDuplicateCandidates([]);
+    setDuplicateError(null);
+
     if (!file) {
       setPreview(null);
       return;
@@ -72,6 +172,70 @@ export default function UploadClient() {
       return;
     }
     setPreview(URL.createObjectURL(file));
+
+    try {
+      setDuplicateStatus("checking");
+      const hash = await computeImageHash(file);
+      if (checkSeqRef.current !== seq) return;
+      setImageHash(hash);
+
+      const res = await fetch(`/api/postcards/duplicates?hash=${encodeURIComponent(hash)}`);
+      const data = await res.json().catch(() => ({}));
+      if (checkSeqRef.current !== seq) return;
+
+      if (!res.ok) {
+        setDuplicateStatus("error");
+        setDuplicateError(data?.error || "重复检测失败，仍可继续上传");
+        return;
+      }
+
+      const duplicates: DuplicateCandidate[] = Array.isArray(data?.duplicates)
+        ? data.duplicates
+        : [];
+      const backfillHashes: { id: string; imageHash: string }[] = [];
+      const unhashedPostcards: Postcard[] = Array.isArray(data?.unhashedPostcards)
+        ? data.unhashedPostcards
+        : [];
+
+      for (const postcard of unhashedPostcards) {
+        if (checkSeqRef.current !== seq) return;
+        try {
+          const imageRes = await fetch(
+            `/api/postcards/image-proxy?id=${encodeURIComponent(postcard.id)}`
+          );
+          if (!imageRes.ok) continue;
+          const blob = await imageRes.blob();
+          const candidateHash = await computeImageHash(blob);
+          backfillHashes.push({ id: postcard.id, imageHash: candidateHash });
+
+          const distance = hammingDistanceHex(hash, candidateHash);
+          if (distance <= DUPLICATE_DISTANCE_THRESHOLD) {
+            duplicates.push({ postcard: { ...postcard, image_hash: candidateHash }, distance });
+          }
+        } catch {
+          // Best effort: an inaccessible old image should not block this upload.
+        }
+      }
+
+      if (checkSeqRef.current !== seq) return;
+
+      if (backfillHashes.length > 0) {
+        fetch("/api/postcards/duplicates", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ hashes: backfillHashes }),
+        }).catch(() => undefined);
+      }
+
+      setDuplicateCandidates(
+        duplicates.sort((a, b) => a.distance - b.distance).slice(0, 3)
+      );
+      setDuplicateStatus(data?.unavailable ? "unavailable" : "done");
+    } catch {
+      if (checkSeqRef.current !== seq) return;
+      setDuplicateStatus("error");
+      setDuplicateError("暂时无法检测重复，仍可继续上传");
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -85,6 +249,10 @@ export default function UploadClient() {
     }
     if (!recipientName.trim()) {
       setError("请填写收件人姓名");
+      return;
+    }
+    if (duplicateStatus === "checking") {
+      setError("照片重复检测还在进行，请稍等片刻");
       return;
     }
 
@@ -131,6 +299,7 @@ export default function UploadClient() {
           note: note.trim() || undefined,
           sentAt: sentAt || undefined,
           arrivedAt: arrivedAt || undefined,
+          imageHash: imageHash || undefined,
         }),
       });
       const data = await res.json();
@@ -179,6 +348,61 @@ export default function UploadClient() {
           />
         </label>
       </div>
+
+      {duplicateStatus === "checking" && (
+        <p className="rounded-lg bg-muted px-4 py-2 text-sm text-muted-foreground">
+          正在检测是否已有疑似同一张明信片…
+        </p>
+      )}
+
+      {duplicateStatus === "unavailable" && (
+        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          暂时无法启用重复检测，请确认数据库已加入 image_hash 字段；你仍可继续上传。
+        </p>
+      )}
+
+      {duplicateStatus === "error" && duplicateError && (
+        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          {duplicateError}
+        </p>
+      )}
+
+      {duplicateCandidates.length > 0 && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <p className="mb-3 text-sm font-medium text-amber-800">
+            检测到可能是同一张明信片的记录，请确认后再发布。
+          </p>
+          <div className="space-y-3">
+            {duplicateCandidates.map(({ postcard, distance }) => (
+              <div
+                key={postcard.id}
+                className="grid grid-cols-[96px_1fr] gap-3 rounded-md bg-background/80 p-2"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={postcard.image_url}
+                  alt={`疑似重复：${postcard.recipient_name}`}
+                  className="aspect-[3/2] w-24 rounded object-cover"
+                />
+                <div className="min-w-0 text-sm">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{postcard.recipient_name}</span>
+                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                      {STATUS_LABEL[postcard.status]}
+                    </span>
+                  </div>
+                  {postcard.note && (
+                    <p className="mt-1 line-clamp-2 text-muted-foreground">{postcard.note}</p>
+                  )}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    上传于 {fmtDate(postcard.created_at) || "未知"}，相似度参考值 {64 - distance}/64
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div>
         <label className="mb-1.5 block text-sm font-medium">

@@ -3,6 +3,7 @@ export type PostcardStatus = "available" | "claimed" | "received";
 export type Postcard = {
   id: string;
   image_url: string;
+  image_hash?: string | null;
   recipient_name: string;
   note: string | null;
   status: PostcardStatus;

@@ -15,6 +15,7 @@ Serverless（Next.js App Router）应用，部署在 **Vercel**：
 3. **确认收货** — 认领人收到实物后确认，状态流转：`待认领 → 已认领 → 已收到`
 4. **管理记录** — 上传者可修改或删除自己上传的明信片；认领者在确认收到后也可删除记录
 5. **关于页面** — 右上角入口，内容来自 `content/about.md`，可用 Markdown 直接维护
+6. **重复提醒** — 上传新照片时先生成 pHash 感知指纹，提示可能是同一张明信片的相似照片
 
 ## 技术栈
 
@@ -35,11 +36,13 @@ app/
     casdoor-session/  logout/  me/   认证会话
     blob/upload/                     Blob 上传令牌（handleUpload）
     postcards/                       列表 GET / 创建 POST / 单条 PATCH、DELETE
+    postcards/duplicates/            pHash 感知指纹疑似重复检测
     postcards/[id]/claim/            认领
     postcards/[id]/receive/          确认收货
 components/                        Nav、明信片卡片、退出按钮
 lib/                              db / auth / types / public-origin
 content/about.md                  关于页 Markdown 内容
+app/favicon.ico                    网站图标
 proxy.ts                         未登录拦截（Next 16 proxy 约定）
 scripts/init.sql                 建表 SQL
 ```
@@ -77,6 +80,7 @@ pnpm dev                     # http://localhost:3000
 1. **数据库**：用 [Supabase](https://supabase.com)（或 [Neon](https://neon.tech)）新建项目，拿到**连接池**串
    （Supabase 选 Transaction 模式的 `…pooler.supabase.com:6543`）；把 `scripts/init.sql`
    贴进 Supabase SQL Editor 跑一遍建表。
+   已有数据库也可以重复执行，脚本会补齐 `image_hash` 等新增字段。
 2. **Blob**：Vercel 项目 → Storage → 新建 Blob Store（会自动注入 `BLOB_READ_WRITE_TOKEN`）。
 3. **Casdoor**：在 `auth.geekpie.club` 新建/配置应用，勾选 `Authorization Code` + PKCE，
    在 Redirect URLs 里加入生产与本地两个 `…/auth/callback`。

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.postcards (
   id             uuid NOT NULL DEFAULT gen_random_uuid(),
   image_url      text NOT NULL,
   recipient_name text NOT NULL,
+  image_hash     text,
   note           text,
   status         text NOT NULL DEFAULT 'available',
   uploader_id    uuid,
@@ -49,7 +50,9 @@ CREATE TABLE IF NOT EXISTS public.postcards (
 -- Idempotent migration for existing databases (safe to run repeatedly).
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS sent_at    date;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS arrived_at date;
+ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS image_hash text;
 
 CREATE INDEX IF NOT EXISTS postcards_status_idx     ON public.postcards (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS postcards_claimer_idx    ON public.postcards (claimer_id);
+CREATE INDEX IF NOT EXISTS postcards_image_hash_idx ON public.postcards (image_hash);
 CREATE INDEX IF NOT EXISTS sessions_expires_at_idx  ON public.sessions (expires_at);
