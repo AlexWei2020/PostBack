@@ -8,6 +8,8 @@ export type Postcard = {
   status: PostcardStatus;
   uploader_id: string | null;
   claimer_id: string | null;
+  sent_at: string | null;
+  arrived_at: string | null;
   created_at: string;
   claimed_at: string | null;
   received_at: string | null;

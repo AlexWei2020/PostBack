@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import PostcardCard from "@/components/postcard-card";
+import PostcardDetail from "@/components/postcard-detail";
 import type { Postcard, PostcardStatus } from "@/lib/types";
 
 type Filter = "all" | PostcardStatus;
@@ -24,10 +25,16 @@ export default function HomeClient({
   const [filter, setFilter] = useState<Filter>("all");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const visible = useMemo(
     () => (filter === "all" ? postcards : postcards.filter((p) => p.status === filter)),
     [postcards, filter]
+  );
+
+  const detail = useMemo(
+    () => postcards.find((p) => p.id === detailId) ?? null,
+    [postcards, detailId]
   );
 
   const act = async (id: string, path: string) => {
@@ -43,6 +50,25 @@ export default function HomeClient({
       setPostcards((prev) =>
         prev.map((p) => (p.id === id ? { ...p, ...data.postcard } : p))
       );
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const remove = async (id: string) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "删除失败");
+        return;
+      }
+      setPostcards((prev) => prev.filter((p) => p.id !== id));
+      setDetailId(null);
     } catch {
       setError("网络错误，请重试");
     } finally {
@@ -88,9 +114,22 @@ export default function HomeClient({
               busy={busyId === p.id}
               onClaim={(id) => act(id, "claim")}
               onReceive={(id) => act(id, "receive")}
+              onOpen={setDetailId}
             />
           ))}
         </div>
+      )}
+
+      {detail && (
+        <PostcardDetail
+          postcard={detail}
+          currentUserId={currentUserId}
+          busy={busyId === detail.id}
+          onClaim={(id) => act(id, "claim")}
+          onReceive={(id) => act(id, "receive")}
+          onDelete={remove}
+          onClose={() => setDetailId(null)}
+        />
       )}
     </div>
   );

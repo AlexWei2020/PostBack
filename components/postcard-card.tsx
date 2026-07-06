@@ -15,17 +15,31 @@ export default function PostcardCard({
   busy,
   onClaim,
   onReceive,
+  onOpen,
 }: {
   postcard: Postcard;
   currentUserId: string;
   busy?: boolean;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
+  onOpen?: (id: string) => void;
 }) {
   const isClaimer = postcard.claimer_id === currentUserId;
+  // Action buttons live inside the clickable card — stop them from also
+  // opening the detail modal.
+  const stop =
+    (fn?: (id: string) => void) => (e: React.MouseEvent) => {
+      e.stopPropagation();
+      fn?.(postcard.id);
+    };
 
   return (
-    <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md">
+    <div
+      onClick={() => onOpen?.(postcard.id)}
+      className={`flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md ${
+        onOpen ? "cursor-pointer" : ""
+      }`}
+    >
       <div className="relative aspect-[3/2] w-full bg-muted">
         {/* Blob images are on an allowed remote host; unoptimized keeps it simple */}
         <Image
@@ -55,7 +69,7 @@ export default function PostcardCard({
         <div className="mt-auto pt-2">
           {postcard.status === "available" && onClaim && (
             <button
-              onClick={() => onClaim(postcard.id)}
+              onClick={stop(onClaim)}
               disabled={busy}
               className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
             >
@@ -65,7 +79,7 @@ export default function PostcardCard({
 
           {postcard.status === "claimed" && isClaimer && onReceive && (
             <button
-              onClick={() => onReceive(postcard.id)}
+              onClick={stop(onReceive)}
               disabled={busy}
               className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
             >
@@ -80,7 +94,7 @@ export default function PostcardCard({
           )}
 
           {postcard.status === "received" && (
-            <p className="text-center text-xs text-muted-foreground">已完成 · 感谢互助 🤝</p>
+            <p className="text-center text-xs text-muted-foreground">已完成</p>
           )}
         </div>
       </div>

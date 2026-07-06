@@ -54,6 +54,8 @@ export default function UploadClient() {
   const [preview, setPreview] = useState<string | null>(null);
   const [recipientName, setRecipientName] = useState("");
   const [note, setNote] = useState("");
+  const [sentAt, setSentAt] = useState("");
+  const [arrivedAt, setArrivedAt] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -127,6 +129,8 @@ export default function UploadClient() {
           imageUrl: uploadData.url,
           recipientName: recipientName.trim(),
           note: note.trim() || undefined,
+          sentAt: sentAt || undefined,
+          arrivedAt: arrivedAt || undefined,
         }),
       });
       const data = await res.json();
@@ -201,6 +205,31 @@ export default function UploadClient() {
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
           maxLength={500}
         />
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            寄出时间 <span className="text-muted-foreground">（可选）</span>
+          </label>
+          <input
+            type="date"
+            value={sentAt}
+            onChange={(e) => setSentAt(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium">
+            到达时间 <span className="text-muted-foreground">（落地戳 · 可选）</span>
+          </label>
+          <input
+            type="date"
+            value={arrivedAt}
+            onChange={(e) => setArrivedAt(e.target.value)}
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          />
+        </div>
       </div>
 
       {error && (

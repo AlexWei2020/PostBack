@@ -45,7 +45,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ postcards: result.rows, currentUserId: user.id });
 }
 
-// POST /api/postcards  { imageUrl, recipientName, note? }
+// POST /api/postcards  { imageUrl, recipientName, note?, sentAt?, arrivedAt? }
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -54,6 +54,14 @@ export async function POST(request: Request) {
   const imageUrl = String(body?.imageUrl || "").trim();
   const recipientName = String(body?.recipientName || "").trim();
   const note = body?.note ? String(body.note).trim() : null;
+
+  // Optional date fields (YYYY-MM-DD). Anything malformed becomes null.
+  const asDate = (v: unknown) => {
+    const s = typeof v === "string" ? v.trim() : "";
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  };
+  const sentAt = asDate(body?.sentAt);
+  const arrivedAt = asDate(body?.arrivedAt);
 
   if (!imageUrl || !recipientName) {
     return NextResponse.json(
@@ -67,11 +75,11 @@ export async function POST(request: Request) {
 
   const result = await pool.query(
     `
-    insert into postcards (image_url, recipient_name, note, uploader_id, status)
-    values ($1, $2, $3, $4, 'available')
+    insert into postcards (image_url, recipient_name, note, sent_at, arrived_at, uploader_id, status)
+    values ($1, $2, $3, $4, $5, $6, 'available')
     returning *
     `,
-    [imageUrl, recipientName, note, user.id]
+    [imageUrl, recipientName, note, sentAt, arrivedAt, user.id]
   );
 
   return NextResponse.json({ postcard: result.rows[0] }, { status: 201 });

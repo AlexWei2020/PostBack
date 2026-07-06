@@ -35,6 +35,8 @@ CREATE TABLE IF NOT EXISTS public.postcards (
   status         text NOT NULL DEFAULT 'available',
   uploader_id    uuid,
   claimer_id     uuid,
+  sent_at        date,           -- 寄出时间（可选登记）
+  arrived_at     date,           -- 到达时间 / 落地戳（可选登记）
   created_at     timestamptz DEFAULT now(),
   claimed_at     timestamptz,
   received_at    timestamptz,
@@ -43,6 +45,10 @@ CREATE TABLE IF NOT EXISTS public.postcards (
   CONSTRAINT postcards_uploader_fkey FOREIGN KEY (uploader_id) REFERENCES public.users(id) ON DELETE SET NULL,
   CONSTRAINT postcards_claimer_fkey  FOREIGN KEY (claimer_id)  REFERENCES public.users(id) ON DELETE SET NULL
 );
+
+-- Idempotent migration for existing databases (safe to run repeatedly).
+ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS sent_at    date;
+ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS arrived_at date;
 
 CREATE INDEX IF NOT EXISTS postcards_status_idx     ON public.postcards (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS postcards_claimer_idx    ON public.postcards (claimer_id);

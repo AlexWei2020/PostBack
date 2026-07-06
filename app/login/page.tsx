@@ -65,7 +65,7 @@ export default function LoginPage() {
         <div className="mb-4 text-5xl">✉️</div>
         <h1 className="text-3xl font-bold tracking-tight">PostBack</h1>
         <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          明信片认领互助站 —— 上传你手上的明信片，帮它找到主人；认领属于你的那一张。
+          明信片认领互助站 —— 上传驿站无人认领的明信片，帮它找到主人；认领属于你的那一张。
         </p>
       </div>
       <button
