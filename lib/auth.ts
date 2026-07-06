@@ -6,6 +6,7 @@ export type CurrentUser = {
   geekpie_id: string;
   nickname: string | null;
   avatar_url: string | null;
+  recipient_names: string[];
   created_at: string;
 };
 

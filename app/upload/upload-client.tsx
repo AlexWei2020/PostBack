@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
+import { COMMON_PICKUP_LOCATIONS } from "@/lib/pickup-locations";
 
 type DuplicateCandidate = {
   postcard: Postcard;
@@ -10,7 +11,7 @@ type DuplicateCandidate = {
 };
 
 type DuplicateStatus = "idle" | "checking" | "done" | "unavailable" | "error";
-const DUPLICATE_DISTANCE_THRESHOLD = 16;
+const DUPLICATE_DISTANCE_THRESHOLD = 22;
 
 // 在浏览器里把图片缩放 + 压成 JPEG，控制在 Vercel 函数 4.5MB 请求体限制内，
 // 同时明显加快上传。失败（如 HEIC 浏览器无法解码）时回退用原文件。
@@ -84,22 +85,48 @@ function median(values: number[]) {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function computeImageHash(file: Blob): Promise<string> {
-  const dataUrl = await imageToDataUrl(file);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const image = new Image();
-    image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("无法解码该图片"));
-    image.src = dataUrl;
-  });
+function drawImageVariant(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  width: number,
+  mode: "contain" | "cover"
+) {
+  ctx.fillStyle = "#fff";
+  ctx.fillRect(0, 0, width, width);
 
+  const imageRatio = img.width / img.height;
+  const targetRatio = 1;
+  let sourceX = 0;
+  let sourceY = 0;
+  let sourceWidth = img.width;
+  let sourceHeight = img.height;
+
+  if (mode === "cover") {
+    if (imageRatio > targetRatio) {
+      sourceWidth = img.height * targetRatio;
+      sourceX = (img.width - sourceWidth) / 2;
+    } else {
+      sourceHeight = img.width / targetRatio;
+      sourceY = (img.height - sourceHeight) / 2;
+    }
+    ctx.drawImage(img, sourceX, sourceY, sourceWidth, sourceHeight, 0, 0, width, width);
+    return;
+  }
+
+  const scale = Math.min(width / img.width, width / img.height);
+  const drawWidth = img.width * scale;
+  const drawHeight = img.height * scale;
+  ctx.drawImage(img, (width - drawWidth) / 2, (width - drawHeight) / 2, drawWidth, drawHeight);
+}
+
+function computePHashFromImage(img: HTMLImageElement, mode: "contain" | "cover"): string {
   const width = 32;
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = width;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("无法处理图片");
-  ctx.drawImage(img, 0, 0, width, width);
+  drawImageVariant(ctx, img, width, mode);
 
   const pixels = ctx.getImageData(0, 0, width, width).data;
   const gray: number[] = [];
@@ -123,7 +150,25 @@ async function computeImageHash(file: Blob): Promise<string> {
   return hash;
 }
 
+async function computeImageHash(file: Blob): Promise<string> {
+  const dataUrl = await imageToDataUrl(file);
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("无法解码该图片"));
+    image.src = dataUrl;
+  });
+
+  return [computePHashFromImage(img, "contain"), computePHashFromImage(img, "cover")].join(":");
+}
+
 function hammingDistanceHex(a: string, b: string) {
+  const aParts = a.split(":");
+  const bParts = b.split(":");
+  if (aParts.length > 1 || bParts.length > 1) {
+    return Math.min(...aParts.flatMap((left) => bParts.map((right) => hammingDistanceHex(left, right))));
+  }
+
   let distance = 0;
   for (let i = 0; i < a.length; i += 1) {
     const diff = parseInt(a[i], 16) ^ parseInt(b[i], 16);
@@ -142,6 +187,7 @@ export default function UploadClient() {
   const checkSeqRef = useRef(0);
   const [preview, setPreview] = useState<string | null>(null);
   const [recipientName, setRecipientName] = useState("");
+  const [pickupLocation, setPickupLocation] = useState("");
   const [note, setNote] = useState("");
   const [sentAt, setSentAt] = useState("");
   const [arrivedAt, setArrivedAt] = useState("");
@@ -296,6 +342,7 @@ export default function UploadClient() {
         body: JSON.stringify({
           imageUrl: uploadData.url,
           recipientName: recipientName.trim(),
+          pickupLocation: pickupLocation.trim() || undefined,
           note: note.trim() || undefined,
           sentAt: sentAt || undefined,
           arrivedAt: arrivedAt || undefined,
@@ -424,14 +471,48 @@ export default function UploadClient() {
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
-          placeholder="例如：来自哪次活动、取件地点等"
           rows={3}
           className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
           maxLength={500}
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div>
+        <label className="mb-2 block text-sm font-medium">
+          取件地点 <span className="text-muted-foreground">（可选）</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {COMMON_PICKUP_LOCATIONS.map((location) => (
+            <label
+              key={location}
+              className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition ${
+                pickupLocation === location
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border bg-background text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              <input
+                type="radio"
+                name="pickupLocation"
+                value={location}
+                checked={pickupLocation === location}
+                onChange={(e) => setPickupLocation(e.target.value)}
+                className="sr-only"
+              />
+              {location}
+            </label>
+          ))}
+        </div>
+        <input
+          value={COMMON_PICKUP_LOCATIONS.includes(pickupLocation) ? "" : pickupLocation}
+          onChange={(e) => setPickupLocation(e.target.value)}
+          placeholder="添加新地点"
+          className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          maxLength={80}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium">
             寄出时间 <span className="text-muted-foreground">（可选）</span>

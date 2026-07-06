@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureImageHashColumn, normalizeImageHash } from "@/lib/postcard-image-hash";
+import { ensurePostcardMetadataColumns } from "@/lib/schema";
 
 // GET /api/postcards            -> all postcards (newest first)
 // GET /api/postcards?status=available
@@ -46,7 +47,7 @@ export async function GET(request: Request) {
   return NextResponse.json({ postcards: result.rows, currentUserId: user.id });
 }
 
-// POST /api/postcards  { imageUrl, recipientName, note?, sentAt?, arrivedAt?, imageHash? }
+// POST /api/postcards  { imageUrl, recipientName, pickupLocation?, note?, sentAt?, arrivedAt?, imageHash? }
 export async function POST(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const imageUrl = String(body?.imageUrl || "").trim();
   const recipientName = String(body?.recipientName || "").trim();
+  const pickupLocation = body?.pickupLocation ? String(body.pickupLocation).trim() : null;
   const note = body?.note ? String(body.note).trim() : null;
   const imageHash = normalizeImageHash(body?.imageHash);
 
@@ -74,25 +76,51 @@ export async function POST(request: Request) {
   if (!/^https:\/\/[^\s]+/.test(imageUrl)) {
     return NextResponse.json({ error: "图片地址无效" }, { status: 400 });
   }
+  if (pickupLocation && pickupLocation.length > 80) {
+    return NextResponse.json({ error: "取件地点过长" }, { status: 400 });
+  }
 
+  const canStoreMetadata = await ensurePostcardMetadataColumns();
   const canStoreHash = imageHash ? await ensureImageHashColumn() : false;
-  const result = canStoreHash
-    ? await pool.query(
-        `
-        insert into postcards (image_url, recipient_name, image_hash, note, sent_at, arrived_at, uploader_id, status)
-        values ($1, $2, $3, $4, $5, $6, $7, 'available')
-        returning *
-        `,
-        [imageUrl, recipientName, imageHash, note, sentAt, arrivedAt, user.id]
-      )
-    : await pool.query(
-        `
-        insert into postcards (image_url, recipient_name, note, sent_at, arrived_at, uploader_id, status)
-        values ($1, $2, $3, $4, $5, $6, 'available')
-        returning *
-        `,
-        [imageUrl, recipientName, note, sentAt, arrivedAt, user.id]
-      );
+  let result;
+
+  if (canStoreHash && canStoreMetadata) {
+    result = await pool.query(
+      `
+      insert into postcards (image_url, recipient_name, image_hash, pickup_location, note, sent_at, arrived_at, uploader_id, status)
+      values ($1, $2, $3, $4, $5, $6, $7, $8, 'available')
+      returning *
+      `,
+      [imageUrl, recipientName, imageHash, pickupLocation, note, sentAt, arrivedAt, user.id]
+    );
+  } else if (canStoreHash) {
+    result = await pool.query(
+      `
+      insert into postcards (image_url, recipient_name, image_hash, note, sent_at, arrived_at, uploader_id, status)
+      values ($1, $2, $3, $4, $5, $6, $7, 'available')
+      returning *
+      `,
+      [imageUrl, recipientName, imageHash, note, sentAt, arrivedAt, user.id]
+    );
+  } else if (canStoreMetadata) {
+    result = await pool.query(
+      `
+      insert into postcards (image_url, recipient_name, pickup_location, note, sent_at, arrived_at, uploader_id, status)
+      values ($1, $2, $3, $4, $5, $6, $7, 'available')
+      returning *
+      `,
+      [imageUrl, recipientName, pickupLocation, note, sentAt, arrivedAt, user.id]
+    );
+  } else {
+    result = await pool.query(
+      `
+      insert into postcards (image_url, recipient_name, note, sent_at, arrived_at, uploader_id, status)
+      values ($1, $2, $3, $4, $5, $6, 'available')
+      returning *
+      `,
+      [imageUrl, recipientName, note, sentAt, arrivedAt, user.id]
+    );
+  }
 
   return NextResponse.json({ postcard: result.rows[0] }, { status: 201 });
 }

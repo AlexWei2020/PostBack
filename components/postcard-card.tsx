@@ -46,8 +46,9 @@ export default function PostcardCard({
           src={postcard.image_url}
           alt={`寄给 ${postcard.recipient_name} 的明信片`}
           fill
-          unoptimized
-          sizes="(max-width: 640px) 100vw, 320px"
+          loading="lazy"
+          quality={55}
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
           className="object-cover"
         />
         <span
@@ -64,6 +65,9 @@ export default function PostcardCard({
         </div>
         {postcard.note && (
           <p className="text-sm text-muted-foreground line-clamp-2">{postcard.note}</p>
+        )}
+        {postcard.pickup_location && (
+          <p className="text-xs text-muted-foreground">取件地点：{postcard.pickup_location}</p>
         )}
 
         <div className="mt-auto pt-2">

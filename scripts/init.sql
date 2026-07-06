@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   geekpie_id  text NOT NULL UNIQUE,
   nickname    text,
   avatar_url  text,
+  recipient_names text[] NOT NULL DEFAULT '{}',
   created_at  timestamptz DEFAULT now(),
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
@@ -32,6 +33,7 @@ CREATE TABLE IF NOT EXISTS public.postcards (
   image_url      text NOT NULL,
   recipient_name text NOT NULL,
   image_hash     text,
+  pickup_location text,
   note           text,
   status         text NOT NULL DEFAULT 'available',
   uploader_id    uuid,
@@ -51,8 +53,11 @@ CREATE TABLE IF NOT EXISTS public.postcards (
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS sent_at    date;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS arrived_at date;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS image_hash text;
+ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS pickup_location text;
+ALTER TABLE public.users ADD COLUMN IF NOT EXISTS recipient_names text[] NOT NULL DEFAULT '{}';
 
 CREATE INDEX IF NOT EXISTS postcards_status_idx     ON public.postcards (status, created_at DESC);
 CREATE INDEX IF NOT EXISTS postcards_claimer_idx    ON public.postcards (claimer_id);
 CREATE INDEX IF NOT EXISTS postcards_image_hash_idx ON public.postcards (image_hash);
+CREATE INDEX IF NOT EXISTS postcards_recipient_name_match_idx ON public.postcards ((lower(trim(recipient_name))));
 CREATE INDEX IF NOT EXISTS sessions_expires_at_idx  ON public.sessions (expires_at);

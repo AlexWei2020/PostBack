@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { del } from "@vercel/blob";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { ensurePostcardMetadataColumns } from "@/lib/schema";
 
 function asDate(v: unknown) {
   const s = typeof v === "string" ? v.trim() : "";
@@ -21,6 +22,7 @@ export async function PATCH(
   const body = await request.json().catch(() => ({}));
 
   const recipientName = String(body?.recipientName || "").trim();
+  const pickupLocation = body?.pickupLocation ? String(body.pickupLocation).trim() : null;
   const note = body?.note ? String(body.note).trim() : null;
   const sentAt = asDate(body?.sentAt);
   const arrivedAt = asDate(body?.arrivedAt);
@@ -34,27 +36,53 @@ export async function PATCH(
   if (note && note.length > 500) {
     return NextResponse.json({ error: "备注过长" }, { status: 400 });
   }
+  if (pickupLocation && pickupLocation.length > 80) {
+    return NextResponse.json({ error: "取件地点过长" }, { status: 400 });
+  }
 
+  const canStoreMetadata = await ensurePostcardMetadataColumns();
   const result = await pool.query(
-    `
-    with updated as (
-      update postcards
-      set recipient_name = $1,
-          note = $2,
-          sent_at = $3,
-          arrived_at = $4
-      where id = $5 and uploader_id = $6
-      returning *
-    )
-    select
-      updated.*,
-      up.nickname as uploader_nickname,
-      cl.nickname as claimer_nickname
-    from updated
-    left join users up on updated.uploader_id = up.id
-    left join users cl on updated.claimer_id = cl.id
-    `,
-    [recipientName, note, sentAt, arrivedAt, id, user.id]
+    canStoreMetadata
+      ? `
+      with updated as (
+        update postcards
+        set recipient_name = $1,
+            pickup_location = $2,
+            note = $3,
+            sent_at = $4,
+            arrived_at = $5
+        where id = $6 and uploader_id = $7
+        returning *
+      )
+      select
+        updated.*,
+        up.nickname as uploader_nickname,
+        cl.nickname as claimer_nickname
+      from updated
+      left join users up on updated.uploader_id = up.id
+      left join users cl on updated.claimer_id = cl.id
+      `
+      : `
+      with updated as (
+        update postcards
+        set recipient_name = $1,
+            note = $2,
+            sent_at = $3,
+            arrived_at = $4
+        where id = $5 and uploader_id = $6
+        returning *
+      )
+      select
+        updated.*,
+        up.nickname as uploader_nickname,
+        cl.nickname as claimer_nickname
+      from updated
+      left join users up on updated.uploader_id = up.id
+      left join users cl on updated.claimer_id = cl.id
+      `,
+    canStoreMetadata
+      ? [recipientName, pickupLocation, note, sentAt, arrivedAt, id, user.id]
+      : [recipientName, note, sentAt, arrivedAt, id, user.id]
   );
 
   if (result.rows.length === 0) {

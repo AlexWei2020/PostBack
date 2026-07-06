@@ -5,6 +5,7 @@ export type Postcard = {
   image_url: string;
   image_hash?: string | null;
   recipient_name: string;
+  pickup_location: string | null;
   note: string | null;
   status: PostcardStatus;
   uploader_id: string | null;
@@ -21,6 +22,7 @@ export type Postcard = {
 
 export type PostcardUpdateInput = {
   recipientName: string;
+  pickupLocation?: string;
   note?: string;
   sentAt?: string;
   arrivedAt?: string;

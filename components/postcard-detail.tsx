@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { STATUS_LABEL, type Postcard, type PostcardUpdateInput } from "@/lib/types";
+import { COMMON_PICKUP_LOCATIONS } from "@/lib/pickup-locations";
 
 const STATUS_STYLE: Record<Postcard["status"], string> = {
   available: "bg-primary/10 text-primary",
@@ -46,6 +47,7 @@ function toDateInput(v: string | null): string {
 function formFromPostcard(postcard: Postcard): PostcardUpdateInput {
   return {
     recipientName: postcard.recipient_name,
+    pickupLocation: postcard.pickup_location || "",
     note: postcard.note || "",
     sentAt: toDateInput(postcard.sent_at),
     arrivedAt: toDateInput(postcard.arrived_at),
@@ -104,6 +106,7 @@ export default function PostcardDetail({
 
     const ok = await onUpdate(postcard.id, {
       recipientName: form.recipientName.trim(),
+      pickupLocation: form.pickupLocation?.trim() || undefined,
       note: form.note?.trim() || undefined,
       sentAt: form.sentAt || undefined,
       arrivedAt: form.arrivedAt || undefined,
@@ -182,7 +185,46 @@ export default function PostcardDetail({
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  取件地点 <span className="text-muted-foreground">（可选）</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_PICKUP_LOCATIONS.map((location) => (
+                    <label
+                      key={location}
+                      className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition ${
+                        form.pickupLocation === location
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="editPickupLocation"
+                        value={location}
+                        checked={form.pickupLocation === location}
+                        onChange={setField("pickupLocation")}
+                        className="sr-only"
+                      />
+                      {location}
+                    </label>
+                  ))}
+                </div>
+                <input
+                  value={
+                    COMMON_PICKUP_LOCATIONS.includes(form.pickupLocation || "")
+                      ? ""
+                      : form.pickupLocation || ""
+                  }
+                  onChange={setField("pickupLocation")}
+                  placeholder="添加新地点"
+                  className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                  maxLength={80}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className="mb-1.5 block text-sm font-medium">
                     寄出时间 <span className="text-muted-foreground">（可选）</span>
@@ -223,6 +265,7 @@ export default function PostcardDetail({
               <div className="divide-y divide-border">
                 <InfoRow label="寄出时间" value={fmtDate(postcard.sent_at)} />
                 <InfoRow label="到达时间（落地戳）" value={fmtDate(postcard.arrived_at)} />
+                <InfoRow label="取件地点" value={postcard.pickup_location || null} />
                 <InfoRow label="上传者" value={postcard.uploader_nickname || null} />
                 <InfoRow label="认领者" value={postcard.claimer_nickname || null} />
                 <InfoRow label="上传于" value={fmtDateTime(postcard.created_at)} />

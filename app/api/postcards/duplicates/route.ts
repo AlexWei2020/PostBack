@@ -7,7 +7,7 @@ import {
   normalizeImageHash,
 } from "@/lib/postcard-image-hash";
 
-const DUPLICATE_DISTANCE_THRESHOLD = 16;
+const DUPLICATE_DISTANCE_THRESHOLD = 22;
 const HASHED_SCAN_LIMIT = 300;
 const UNHASHED_BACKFILL_LIMIT = 30;
 
