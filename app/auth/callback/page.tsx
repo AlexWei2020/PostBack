@@ -2,26 +2,6 @@
 
 import { useEffect, useState } from "react";
 
-type CasdoorTokenResponse = {
-  access_token?: string;
-  accessToken?: string;
-  expires_in?: number;
-  error?: string;
-  error_description?: string;
-};
-
-type CasdoorUserInfo = {
-  id?: string;
-  sub?: string;
-  userId?: string;
-  name?: string;
-  displayName?: string;
-  nickname?: string;
-  preferred_username?: string;
-  avatar?: string;
-  avatarUrl?: string;
-};
-
 const CODE_VERIFIER_KEY = "pkce_verifier";
 const STATE_KEY = "pkce_state";
 
@@ -45,115 +25,23 @@ export default function CasdoorCallback() {
         return;
       }
 
-      const clientId = process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID;
-      const serverUrl = process.env.NEXT_PUBLIC_CASDOOR_SERVER_URL;
       const redirectUri =
         process.env.NEXT_PUBLIC_CASDOOR_REDIRECT_URI ||
         `${window.location.origin}/auth/callback`;
 
-      if (!clientId || !serverUrl) {
-        setMessage("缺少 Casdoor 配置");
-        return;
-      }
-      const base = serverUrl.replace(/\/+$/, "");
-
-      const body = new URLSearchParams({
-        grant_type: "authorization_code",
-        client_id: clientId,
-        code,
-        redirect_uri: redirectUri,
-        code_verifier: verifier,
-      });
-
-      let tokenRes: Response;
-      try {
-        tokenRes = await fetch(`${base}/api/login/oauth/access_token`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            Accept: "application/json",
-          },
-          body,
-        });
-      } catch (err) {
-        // Most likely a CORS failure or network error hitting Casdoor directly
-        // from the browser — this never reaches our own server, so it won't
-        // show up in Vercel logs at all.
-        console.error("[auth/callback] token fetch failed", err);
-        setMessage(
-          `无法连接 Casdoor（换取 token 时网络错误，可能是 CORS）：${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
-        return;
-      }
-
-      const tokenText = await tokenRes.text();
-      let tokenJson: CasdoorTokenResponse;
-      try {
-        tokenJson = JSON.parse(tokenText) as CasdoorTokenResponse;
-      } catch {
-        console.error("[auth/callback] token response not JSON", tokenRes.status, tokenText);
-        setMessage(`换取 token 失败（HTTP ${tokenRes.status}）：${tokenText.slice(0, 200)}`);
-        return;
-      }
-      const accessToken = tokenJson.access_token ?? tokenJson.accessToken;
-
-      if (!tokenRes.ok || !accessToken) {
-        setMessage(
-          `换取 token 失败（HTTP ${tokenRes.status}）：${
-            tokenJson.error_description || tokenJson.error || "未知错误"
-          }`
-        );
-        return;
-      }
-
-      let userInfoRes: Response;
-      try {
-        userInfoRes = await fetch(
-          `${base}/api/userinfo?accessToken=${encodeURIComponent(accessToken)}`
-        );
-      } catch (err) {
-        console.error("[auth/callback] userinfo fetch failed", err);
-        setMessage(
-          `获取用户信息网络错误：${err instanceof Error ? err.message : String(err)}`
-        );
-        return;
-      }
-      let userInfo: CasdoorUserInfo | null = userInfoRes.ok
-        ? ((await userInfoRes.json()) as CasdoorUserInfo)
-        : null;
-
-      const hasName = (info: CasdoorUserInfo | null) =>
-        Boolean(info?.name || info?.displayName || info?.preferred_username || info?.nickname);
-
-      if (!hasName(userInfo)) {
-        const fallbackRes = await fetch(
-          `${base}/api/get-user?accessToken=${encodeURIComponent(accessToken)}`
-        );
-        if (fallbackRes.ok) {
-          userInfo = (await fallbackRes.json()) as CasdoorUserInfo;
-        }
-      }
-
-      if (!userInfo) {
-        setMessage("获取用户信息失败");
-        return;
-      }
-
+      // Hand the code + PKCE verifier to our own server, which performs the
+      // token exchange and userinfo fetch server-to-server. Doing this in the
+      // browser hits Casdoor cross-origin and gets blocked by CORS
+      // ("Failed to fetch"), so it must run server-side.
       const res = await fetch("/api/casdoor-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accessToken,
-          expiresIn: tokenJson.expires_in,
-          userInfo,
-        }),
+        body: JSON.stringify({ code, codeVerifier: verifier, redirectUri }),
       });
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setMessage(`创建会话失败（HTTP ${res.status}）：${data?.error || "未知错误"}`);
+        setMessage(data?.error || `登录失败（HTTP ${res.status}）`);
         return;
       }
 
