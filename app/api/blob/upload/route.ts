@@ -1,38 +1,57 @@
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 
-// Client-side upload flow: the browser asks this route for a short-lived token,
-// uploads the file straight to Vercel Blob, then Blob calls us back on completion.
-// This avoids the ~4.5MB serverless request-body limit for large photos.
-export async function POST(request: Request): Promise<NextResponse> {
-  const body = (await request.json()) as HandleUploadBody;
+export const runtime = "nodejs";
 
+// 服务器端转存上传：
+// 浏览器把（已压缩的）图片 POST 到本接口（同源 post.alexwei.top，走 Cloudflare，
+// 国内可达），再由服务器端 put() 到 Vercel Blob。避免浏览器直连
+// *.blob.vercel-storage.com（国内常超时/被墙，导致上传一直卡住）。
+// 代价是受 Vercel 函数 ~4.5MB 请求体限制，所以客户端会先压缩图片。
+const MAX_BYTES = 4.4 * 1024 * 1024;
+
+export async function POST(request: Request): Promise<NextResponse> {
   try {
-    const jsonResponse = await handleUpload({
-      body,
-      request,
-      onBeforeGenerateToken: async () => {
-        const user = await getCurrentUser();
-        if (!user) throw new Error("未登录");
-        return {
-          allowedContentTypes: ["image/jpeg", "image/png", "image/webp", "image/heic"],
-          maximumSizeInBytes: 10 * 1024 * 1024, // 10 MB
-          addRandomSuffix: true,
-          tokenPayload: JSON.stringify({ userId: user.id }),
-        };
-      },
-      onUploadCompleted: async () => {
-        // No-op: the postcard row is created by POST /api/postcards once the
-        // client has the returned blob URL.
-      },
+    const user = await getCurrentUser();
+    if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
+
+    if (!request.body) {
+      return NextResponse.json({ error: "缺少文件内容" }, { status: 400 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const rawName = searchParams.get("filename") || `postcard-${Date.now()}.jpg`;
+    const filename = rawName.replace(/[^\w.\-]+/g, "_").slice(0, 100);
+    const contentType = request.headers.get("content-type") || "image/jpeg";
+
+    if (!contentType.startsWith("image/")) {
+      return NextResponse.json({ error: "只能上传图片" }, { status: 400 });
+    }
+
+    const buf = await request.arrayBuffer();
+    if (buf.byteLength === 0) {
+      return NextResponse.json({ error: "文件为空" }, { status: 400 });
+    }
+    if (buf.byteLength > MAX_BYTES) {
+      return NextResponse.json(
+        { error: "图片过大（压缩后仍超过 4MB），请换一张更小的图片" },
+        { status: 413 }
+      );
+    }
+
+    const blob = await put(filename, Buffer.from(buf), {
+      access: "public",
+      addRandomSuffix: true,
+      contentType,
     });
 
-    return NextResponse.json(jsonResponse);
+    return NextResponse.json({ url: blob.url });
   } catch (error) {
+    console.error("Blob upload failed:", error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "上传失败" },
-      { status: 400 }
+      { error: error instanceof Error ? error.message : "图片上传失败" },
+      { status: 500 }
     );
   }
 }

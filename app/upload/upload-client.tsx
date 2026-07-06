@@ -1,8 +1,52 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+// 在浏览器里把图片缩放 + 压成 JPEG，控制在 Vercel 函数 4.5MB 请求体限制内，
+// 同时明显加快上传。失败（如 HEIC 浏览器无法解码）时回退用原文件。
+async function compressImage(
+  file: File,
+  maxDim = 1600,
+  quality = 0.82
+): Promise<{ blob: Blob; filename: string }> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("读取文件失败"));
+    reader.readAsDataURL(file);
+  });
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("无法解码该图片"));
+    image.src = dataUrl;
+  });
+
+  let { width, height } = img;
+  const longest = Math.max(width, height);
+  if (longest > maxDim) {
+    const scale = maxDim / longest;
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("无法处理图片");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise<Blob | null>((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", quality)
+  );
+  if (!blob) throw new Error("图片压缩失败");
+
+  const base = file.name.replace(/\.[^.]+$/, "") || "postcard";
+  return { blob, filename: `${base}.jpg` };
+}
 
 export default function UploadClient() {
   const router = useRouter();
@@ -44,18 +88,43 @@ export default function UploadClient() {
 
     setSubmitting(true);
     try {
-      // 1. Upload the image straight to Vercel Blob (via our token route).
-      const blob = await upload(file.name, file, {
-        access: "public",
-        handleUploadUrl: "/api/blob/upload",
-      });
+      // 1. 客户端压缩（HEIC 等无法解码时回退原文件）。
+      const MAX_BYTES = 4.4 * 1024 * 1024;
+      let uploadBlob: Blob = file;
+      let filename = file.name;
+      try {
+        const compressed = await compressImage(file);
+        uploadBlob = compressed.blob;
+        filename = compressed.filename;
+      } catch {
+        if (file.size > MAX_BYTES) {
+          setError("这张图片无法自动压缩且超过 4MB，请换成 JPG/PNG 或更小的图片");
+          return;
+        }
+        // 原文件够小，直接用原文件上传
+      }
 
-      // 2. Create the postcard record.
+      // 2. 传到我们自己的同源接口（国内可达），由服务器端转存到 Blob。
+      const uploadRes = await fetch(
+        `/api/blob/upload?filename=${encodeURIComponent(filename)}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": uploadBlob.type || "image/jpeg" },
+          body: uploadBlob,
+        }
+      );
+      const uploadData = await uploadRes.json().catch(() => ({}));
+      if (!uploadRes.ok || !uploadData?.url) {
+        setError(uploadData?.error || "图片上传失败，请重试");
+        return;
+      }
+
+      // 3. 创建明信片记录。
       const res = await fetch("/api/postcards", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          imageUrl: blob.url,
+          imageUrl: uploadData.url,
           recipientName: recipientName.trim(),
           note: note.trim() || undefined,
         }),
