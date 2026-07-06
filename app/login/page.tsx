@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-
-const CODE_VERIFIER_KEY = "pkce_verifier";
-const STATE_KEY = "pkce_state";
+import {
+  CODE_VERIFIER_KEY,
+  STATE_KEY,
+  writePkceFallbackCookie,
+} from "@/lib/pkce-storage";
 
 function base64UrlEncode(buffer: ArrayBuffer) {
   const bytes = new Uint8Array(buffer);
@@ -47,6 +49,8 @@ export default function LoginPage() {
 
     sessionStorage.setItem(CODE_VERIFIER_KEY, verifier);
     sessionStorage.setItem(STATE_KEY, state);
+    writePkceFallbackCookie(CODE_VERIFIER_KEY, verifier);
+    writePkceFallbackCookie(STATE_KEY, state);
 
     const params = new URLSearchParams({
       response_type: "code",

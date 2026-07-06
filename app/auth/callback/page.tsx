@@ -1,6 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import {
+  clearPkceFallbackCookies,
+  CODE_VERIFIER_KEY,
+  readCookie,
+  STATE_KEY,
+} from "@/lib/pkce-storage";
 
 type CasdoorTokenResponse = {
   access_token?: string;
@@ -22,9 +28,6 @@ type CasdoorUserInfo = {
   avatar?: string;
   avatarUrl?: string;
 };
-
-const CODE_VERIFIER_KEY = "pkce_verifier";
-const STATE_KEY = "pkce_state";
 
 /**
  * Decode a JWT payload in the browser (no signature check — we only read the
@@ -65,6 +68,12 @@ function userInfoFromJwt(token: string): CasdoorUserInfo | null {
   return hasSomething ? info : null;
 }
 
+function clearPkceState() {
+  sessionStorage.removeItem(CODE_VERIFIER_KEY);
+  sessionStorage.removeItem(STATE_KEY);
+  clearPkceFallbackCookies();
+}
+
 export default function CasdoorCallback() {
   const [message, setMessage] = useState("处理中…");
 
@@ -73,15 +82,17 @@ export default function CasdoorCallback() {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
       const state = url.searchParams.get("state");
-      const expectedState = sessionStorage.getItem(STATE_KEY);
-      const verifier = sessionStorage.getItem(CODE_VERIFIER_KEY);
+      const expectedState = sessionStorage.getItem(STATE_KEY) || readCookie(STATE_KEY);
+      const verifier = sessionStorage.getItem(CODE_VERIFIER_KEY) || readCookie(CODE_VERIFIER_KEY);
 
       if (!code || !state || !verifier || !expectedState) {
         setMessage("参数缺失，请重新登录");
+        clearPkceState();
         return;
       }
       if (state !== expectedState) {
         setMessage("状态校验失败，请重新登录");
+        clearPkceState();
         return;
       }
 
@@ -186,8 +197,7 @@ export default function CasdoorCallback() {
         return;
       }
 
-      sessionStorage.removeItem(CODE_VERIFIER_KEY);
-      sessionStorage.removeItem(STATE_KEY);
+      clearPkceState();
       window.location.assign("/");
     };
 
