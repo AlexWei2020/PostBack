@@ -162,7 +162,7 @@ async function computeImageHash(file: Blob): Promise<string> {
   return [computePHashFromImage(img, "contain"), computePHashFromImage(img, "cover")].join(":");
 }
 
-function hammingDistanceHex(a: string, b: string) {
+function hammingDistanceHex(a: string, b: string): number {
   const aParts = a.split(":");
   const bParts = b.split(":");
   if (aParts.length > 1 || bParts.length > 1) {
