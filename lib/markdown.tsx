@@ -2,7 +2,7 @@ import React from "react";
 
 function inlineMarkdown(text: string): React.ReactNode[] {
   const nodes: React.ReactNode[] = [];
-  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\[([^\]]+)\]\(([^)]+)\))/g;
+  const pattern = /(\*\*[^*]+\*\*|`[^`]+`|!\[([^\]]*)\]\(([^)]+)\)|\[([^\]]+)\]\(([^)]+)\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -20,8 +20,18 @@ function inlineMarkdown(text: string): React.ReactNode[] {
           {raw.slice(1, -1)}
         </code>
       );
+    } else if (raw.startsWith("![")) {
+      nodes.push(
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          key={match.index}
+          src={match[3]}
+          alt={match[2] || ""}
+          className="my-3 max-h-[420px] max-w-full rounded-lg border border-border object-contain"
+        />
+      );
     } else {
-      const href = match[3];
+      const href = match[5];
       const isExternal = /^https?:\/\//.test(href);
       nodes.push(
         <a
@@ -31,7 +41,7 @@ function inlineMarkdown(text: string): React.ReactNode[] {
           rel={isExternal ? "noreferrer" : undefined}
           className="font-medium text-primary underline underline-offset-2"
         >
-          {match[2]}
+          {match[4]}
         </a>
       );
     }
