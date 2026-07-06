@@ -3,6 +3,7 @@
 上科大民间明信片认领互助
 
 - 由[@AlexWei2020](https://github.com/AlexWei2020)维护
+- 联系：[weixl2025@shanghaitech.edu.cn](mailto:weixl2025@shanghaitech.edu.cn?subject=PostBack反馈)
 
 - 项目 GitHub：[PostBack](https://github.com/AlexWei2020/PostBack) 
 > 笔者是Postcrossing爱好者，平时去驿站翻明信片时看到很多积灰已久无人认领的明信片，感到很可惜，于是在暑学期Vibe Coding了这个项目。目前刚上线测试，可能不稳定，如有bug敬请谅解。欢迎大家来GitHub给我一个免费的Star🌟支持~

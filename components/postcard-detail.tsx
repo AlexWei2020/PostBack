@@ -60,6 +60,8 @@ export default function PostcardDetail({
   busy,
   onClaim,
   onReceive,
+  onCancelClaim,
+  onCancelReceive,
   onUpdate,
   onDelete,
   onClose,
@@ -69,6 +71,8 @@ export default function PostcardDetail({
   busy?: boolean;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
+  onCancelClaim?: (id: string) => void;
+  onCancelReceive?: (id: string) => void;
   onUpdate?: (id: string, input: PostcardUpdateInput) => boolean | Promise<boolean>;
   onDelete?: (id: string) => void;
   onClose: () => void;
@@ -294,6 +298,36 @@ export default function PostcardDetail({
                 className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 {busy ? "处理中…" : "确认已收到"}
+              </button>
+            )}
+
+            {!editing && postcard.status === "claimed" && isClaimer && onCancelClaim && (
+              <button
+                onClick={() => onCancelClaim(postcard.id)}
+                disabled={busy}
+                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+              >
+                {busy ? "处理中…" : "取消认领"}
+              </button>
+            )}
+
+            {!editing && postcard.status === "received" && isClaimer && onCancelReceive && (
+              <button
+                onClick={() => onCancelReceive(postcard.id)}
+                disabled={busy}
+                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+              >
+                {busy ? "处理中…" : "取消签收"}
+              </button>
+            )}
+
+            {!editing && postcard.status === "received" && isClaimer && onCancelClaim && (
+              <button
+                onClick={() => onCancelClaim(postcard.id)}
+                disabled={busy}
+                className="w-full rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+              >
+                {busy ? "处理中…" : "取消认领"}
               </button>
             )}
 

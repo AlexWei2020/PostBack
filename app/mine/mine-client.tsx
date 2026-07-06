@@ -22,10 +22,14 @@ export default function MineClient({
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const receive = async (id: string) => {
+    await receiveWithMethod(id, "POST");
+  };
+
+  const receiveWithMethod = async (id: string, method: "POST" | "DELETE") => {
     setBusyId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/postcards/${id}/receive`, { method: "POST" });
+      const res = await fetch(`/api/postcards/${id}/receive`, { method });
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error || "操作失败");
@@ -35,6 +39,28 @@ export default function MineClient({
         list.map((p) => (p.id === id ? { ...p, ...data.postcard } : p));
       setClaimedList(patch);
       setUploadedList(patch);
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const cancelClaim = async (id: string) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}/claim`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "取消认领失败");
+        return;
+      }
+      setClaimedList((list) => list.filter((p) => p.id !== id));
+      setUploadedList((list) =>
+        list.map((p) => (p.id === id ? { ...p, ...data.postcard } : p))
+      );
+      setDetailId(null);
     } catch {
       setError("网络错误，请重试");
     } finally {
@@ -142,6 +168,10 @@ export default function MineClient({
               currentUserId={currentUserId}
               busy={busyId === p.id}
               onReceive={tab === "claimed" ? receive : undefined}
+              onCancelClaim={tab === "claimed" ? cancelClaim : undefined}
+              onCancelReceive={
+                tab === "claimed" ? (id) => receiveWithMethod(id, "DELETE") : undefined
+              }
               onOpen={setDetailId}
             />
           ))}
@@ -154,6 +184,8 @@ export default function MineClient({
           currentUserId={currentUserId}
           busy={busyId === detail.id}
           onReceive={receive}
+          onCancelClaim={cancelClaim}
+          onCancelReceive={(id) => receiveWithMethod(id, "DELETE")}
           onUpdate={update}
           onDelete={remove}
           onClose={() => setDetailId(null)}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 import { COMMON_PICKUP_LOCATIONS } from "@/lib/pickup-locations";
 
@@ -182,7 +181,6 @@ function fmtDate(v: string | null): string | null {
 }
 
 export default function UploadClient() {
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const checkSeqRef = useRef(0);
   const [preview, setPreview] = useState<string | null>(null);
@@ -204,6 +202,7 @@ export default function UploadClient() {
     checkSeqRef.current = seq;
     const file = e.target.files?.[0];
     setError(null);
+    setDone(false);
     setImageHash(null);
     setDuplicateStatus("idle");
     setDuplicateCandidates([]);
@@ -287,6 +286,7 @@ export default function UploadClient() {
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setDone(false);
 
     const file = fileRef.current?.files?.[0];
     if (!file) {
@@ -355,8 +355,19 @@ export default function UploadClient() {
         return;
       }
 
+      if (preview) URL.revokeObjectURL(preview);
+      if (fileRef.current) fileRef.current.value = "";
+      setPreview(null);
+      setRecipientName("");
+      setPickupLocation("");
+      setNote("");
+      setSentAt("");
+      setArrivedAt("");
+      setImageHash(null);
+      setDuplicateStatus("idle");
+      setDuplicateCandidates([]);
+      setDuplicateError(null);
       setDone(true);
-      setTimeout(() => router.push("/"), 900);
     } catch (err) {
       setError(err instanceof Error ? err.message : "上传失败，请重试");
     } finally {
@@ -364,17 +375,14 @@ export default function UploadClient() {
     }
   };
 
-  if (done) {
-    return (
-      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center">
-        <div className="mb-2 text-3xl">🎉</div>
-        <p className="font-medium text-emerald-800">上传成功，正在返回广场…</p>
-      </div>
-    );
-  }
-
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5">
+      {done && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          上传成功，可以继续上传下一张。
+        </div>
+      )}
+
       <div>
         <label className="mb-1.5 block text-sm font-medium">明信片正面照片</label>
         <label className="flex aspect-[3/2] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted transition hover:border-primary">

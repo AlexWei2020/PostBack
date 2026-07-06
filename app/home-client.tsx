@@ -32,16 +32,30 @@ export default function HomeClient({
     [postcards, filter]
   );
 
+  const counts = useMemo(
+    () => ({
+      all: postcards.length,
+      available: postcards.filter((p) => p.status === "available").length,
+      claimed: postcards.filter((p) => p.status === "claimed").length,
+      received: postcards.filter((p) => p.status === "received").length,
+    }),
+    [postcards]
+  );
+
   const detail = useMemo(
     () => postcards.find((p) => p.id === detailId) ?? null,
     [postcards, detailId]
   );
 
   const act = async (id: string, path: string) => {
+    await actWithMethod(id, path, "POST");
+  };
+
+  const actWithMethod = async (id: string, path: string, method: "POST" | "DELETE") => {
     setBusyId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/postcards/${id}/${path}`, { method: "POST" });
+      const res = await fetch(`/api/postcards/${id}/${path}`, { method });
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error || "操作失败");
@@ -115,7 +129,7 @@ export default function HomeClient({
                 : "bg-secondary text-secondary-foreground hover:opacity-80"
             }`}
           >
-            {f.label}
+            {f.label}（{counts[f.key]}张）
           </button>
         ))}
       </div>
@@ -140,6 +154,8 @@ export default function HomeClient({
               busy={busyId === p.id}
               onClaim={(id) => act(id, "claim")}
               onReceive={(id) => act(id, "receive")}
+              onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}
+              onCancelReceive={(id) => actWithMethod(id, "receive", "DELETE")}
               onOpen={setDetailId}
             />
           ))}
@@ -153,6 +169,8 @@ export default function HomeClient({
           busy={busyId === detail.id}
           onClaim={(id) => act(id, "claim")}
           onReceive={(id) => act(id, "receive")}
+          onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}
+          onCancelReceive={(id) => actWithMethod(id, "receive", "DELETE")}
           onUpdate={update}
           onDelete={remove}
           onClose={() => setDetailId(null)}

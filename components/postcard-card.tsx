@@ -15,6 +15,8 @@ export default function PostcardCard({
   busy,
   onClaim,
   onReceive,
+  onCancelClaim,
+  onCancelReceive,
   onOpen,
 }: {
   postcard: Postcard;
@@ -22,6 +24,8 @@ export default function PostcardCard({
   busy?: boolean;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
+  onCancelClaim?: (id: string) => void;
+  onCancelReceive?: (id: string) => void;
   onOpen?: (id: string) => void;
 }) {
   const isClaimer = postcard.claimer_id === currentUserId;
@@ -81,14 +85,27 @@ export default function PostcardCard({
             </button>
           )}
 
-          {postcard.status === "claimed" && isClaimer && onReceive && (
-            <button
-              onClick={stop(onReceive)}
-              disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              {busy ? "处理中…" : "确认已收到"}
-            </button>
+          {postcard.status === "claimed" && isClaimer && (onReceive || onCancelClaim) && (
+            <div className="grid grid-cols-1 gap-2">
+              {onReceive && (
+                <button
+                  onClick={stop(onReceive)}
+                  disabled={busy}
+                  className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {busy ? "处理中…" : "确认已收到"}
+                </button>
+              )}
+              {onCancelClaim && (
+                <button
+                  onClick={stop(onCancelClaim)}
+                  disabled={busy}
+                  className="w-full rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                >
+                  取消认领
+                </button>
+              )}
+            </div>
           )}
 
           {postcard.status === "claimed" && !isClaimer && (
@@ -97,7 +114,28 @@ export default function PostcardCard({
             </p>
           )}
 
-          {postcard.status === "received" && (
+          {postcard.status === "received" && isClaimer && onCancelReceive && (
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                onClick={stop(onCancelReceive)}
+                disabled={busy}
+                className="w-full rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+              >
+                取消签收
+              </button>
+              {onCancelClaim && (
+                <button
+                  onClick={stop(onCancelClaim)}
+                  disabled={busy}
+                  className="w-full rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                >
+                  取消认领
+                </button>
+              )}
+            </div>
+          )}
+
+          {postcard.status === "received" && (!isClaimer || !onCancelReceive) && (
             <p className="text-center text-xs text-muted-foreground">已完成</p>
           )}
         </div>
