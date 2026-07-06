@@ -48,6 +48,7 @@ export function renderMarkdown(markdown: string) {
   const lines = markdown.replace(/\r\n/g, "\n").split("\n");
   let paragraph: string[] = [];
   let list: string[] = [];
+  let quote: string[] = [];
 
   const flushParagraph = () => {
     if (paragraph.length === 0) return;
@@ -74,18 +75,37 @@ export function renderMarkdown(markdown: string) {
     list = [];
   };
 
+  const flushQuote = () => {
+    if (quote.length === 0) return;
+    blocks.push(
+      <blockquote
+        key={`quote-${blocks.length}`}
+        className="border-l-4 border-primary/40 bg-muted/70 px-4 py-3 text-sm text-muted-foreground"
+      >
+        {quote.map((item, index) => (
+          <p key={index} className="leading-7">
+            {inlineMarkdown(item)}
+          </p>
+        ))}
+      </blockquote>
+    );
+    quote = [];
+  };
+
   for (const line of lines) {
     const trimmed = line.trim();
 
     if (!trimmed) {
       flushParagraph();
       flushList();
+      flushQuote();
       continue;
     }
 
     if (trimmed.startsWith("### ")) {
       flushParagraph();
       flushList();
+      flushQuote();
       blocks.push(
         <h3 key={`h3-${blocks.length}`} className="pt-3 text-lg font-semibold tracking-tight">
           {inlineMarkdown(trimmed.slice(4))}
@@ -97,6 +117,7 @@ export function renderMarkdown(markdown: string) {
     if (trimmed.startsWith("## ")) {
       flushParagraph();
       flushList();
+      flushQuote();
       blocks.push(
         <h2 key={`h2-${blocks.length}`} className="pt-5 text-xl font-semibold tracking-tight">
           {inlineMarkdown(trimmed.slice(3))}
@@ -108,6 +129,7 @@ export function renderMarkdown(markdown: string) {
     if (trimmed.startsWith("# ")) {
       flushParagraph();
       flushList();
+      flushQuote();
       blocks.push(
         <h1 key={`h1-${blocks.length}`} className="text-2xl font-bold tracking-tight">
           {inlineMarkdown(trimmed.slice(2))}
@@ -118,15 +140,25 @@ export function renderMarkdown(markdown: string) {
 
     if (/^[-*]\s+/.test(trimmed)) {
       flushParagraph();
+      flushQuote();
       list.push(trimmed.replace(/^[-*]\s+/, ""));
       continue;
     }
 
+    if (/^>\s?/.test(trimmed)) {
+      flushParagraph();
+      flushList();
+      quote.push(trimmed.replace(/^>\s?/, ""));
+      continue;
+    }
+
     flushList();
+    flushQuote();
     paragraph.push(trimmed);
   }
 
   flushParagraph();
   flushList();
+  flushQuote();
   return blocks;
 }

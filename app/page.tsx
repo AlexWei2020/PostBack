@@ -31,7 +31,7 @@ export default async function HomePage() {
         <div className="mb-6">
           <h1 className="text-2xl font-bold tracking-tight">明信片广场</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            找到写着你名字的那张，点认领；收到实物后记得确认。
+            ↗️网页右上角点击昵称，进入个人页面，配置常用收件名后可自动匹配 取到明信片后记得确认签收~
           </p>
         </div>
         <HomeClient
