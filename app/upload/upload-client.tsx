@@ -467,7 +467,7 @@ export default function UploadClient() {
           value={recipientName}
           onChange={(e) => setRecipientName(e.target.value)}
           placeholder="明信片上写的收件人姓名"
-          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           maxLength={64}
         />
       </div>
@@ -480,7 +480,7 @@ export default function UploadClient() {
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
-          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           maxLength={500}
         />
       </div>
@@ -515,7 +515,7 @@ export default function UploadClient() {
           value={COMMON_PICKUP_LOCATIONS.includes(pickupLocation) ? "" : pickupLocation}
           onChange={(e) => setPickupLocation(e.target.value)}
           placeholder="添加新地点"
-          className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+          className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           maxLength={80}
         />
       </div>
@@ -529,7 +529,7 @@ export default function UploadClient() {
             type="date"
             value={sentAt}
             onChange={(e) => setSentAt(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           />
         </div>
         <div>
@@ -540,7 +540,7 @@ export default function UploadClient() {
             type="date"
             value={arrivedAt}
             onChange={(e) => setArrivedAt(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           />
         </div>
       </div>

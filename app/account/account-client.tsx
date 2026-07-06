@@ -106,7 +106,7 @@ export default function AccountClient({
             value={namesText}
             onChange={(e) => setNamesText(e.target.value)}
             rows={8}
-            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
           />
           <p className="mt-2 text-xs text-muted-foreground">
             可一行一个，也可用逗号分隔，最多保存 20 个。

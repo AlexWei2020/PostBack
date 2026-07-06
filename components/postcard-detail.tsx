@@ -171,7 +171,7 @@ export default function PostcardDetail({
                 <input
                   value={form.recipientName}
                   onChange={setField("recipientName")}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
                   maxLength={64}
                 />
               </div>
@@ -184,7 +184,7 @@ export default function PostcardDetail({
                   value={form.note || ""}
                   onChange={setField("note")}
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                  className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
                   maxLength={500}
                 />
               </div>
@@ -223,7 +223,7 @@ export default function PostcardDetail({
                   }
                   onChange={setField("pickupLocation")}
                   placeholder="添加新地点"
-                  className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                  className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
                   maxLength={80}
                 />
               </div>
@@ -237,7 +237,7 @@ export default function PostcardDetail({
                     type="date"
                     value={form.sentAt || ""}
                     onChange={setField("sentAt")}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
                   />
                 </div>
                 <div>
@@ -248,7 +248,7 @@ export default function PostcardDetail({
                     type="date"
                     value={form.arrivedAt || ""}
                     onChange={setField("arrivedAt")}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none ring-ring focus:ring-2"
+                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
                   />
                 </div>
               </div>
