@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import PostcardCard from "@/components/postcard-card";
 import PostcardDetail from "@/components/postcard-detail";
-import type { Postcard, PostcardStatus } from "@/lib/types";
+import type { Postcard, PostcardStatus, PostcardUpdateInput } from "@/lib/types";
 
 type Filter = "all" | PostcardStatus;
 
@@ -76,6 +76,32 @@ export default function HomeClient({
     }
   };
 
+  const update = async (id: string, input: PostcardUpdateInput) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "保存失败");
+        return false;
+      }
+      setPostcards((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...data.postcard } : p))
+      );
+      return true;
+    } catch {
+      setError("网络错误，请重试");
+      return false;
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-5 flex flex-wrap gap-2">
@@ -127,6 +153,7 @@ export default function HomeClient({
           busy={busyId === detail.id}
           onClaim={(id) => act(id, "claim")}
           onReceive={(id) => act(id, "receive")}
+          onUpdate={update}
           onDelete={remove}
           onClose={() => setDetailId(null)}
         />

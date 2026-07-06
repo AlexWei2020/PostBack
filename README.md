@@ -13,6 +13,7 @@ Serverless（Next.js App Router）应用，部署在 **Vercel**：
 1. **上传明信片** — 上传正面照片 + 收件人姓名 + 备注（可选）
 2. **认领** — 任何登录用户可认领「待认领」的明信片到自己的账户
 3. **确认收货** — 认领人收到实物后确认，状态流转：`待认领 → 已认领 → 已收到`
+4. **管理记录** — 上传者可修改或删除自己上传的明信片；认领者在确认收到后也可删除记录
 
 ## 技术栈
 
@@ -31,7 +32,7 @@ app/
   api/
     casdoor-session/  logout/  me/   认证会话
     blob/upload/                     Blob 上传令牌（handleUpload）
-    postcards/                       列表 GET / 创建 POST
+    postcards/                       列表 GET / 创建 POST / 单条 PATCH、DELETE
     postcards/[id]/claim/            认领
     postcards/[id]/receive/          确认收货
 components/                        Nav、明信片卡片、退出按钮

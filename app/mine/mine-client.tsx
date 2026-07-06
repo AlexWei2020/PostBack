@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import PostcardCard from "@/components/postcard-card";
 import PostcardDetail from "@/components/postcard-detail";
-import type { Postcard } from "@/lib/types";
+import type { Postcard, PostcardUpdateInput } from "@/lib/types";
 
 export default function MineClient({
   claimed,
@@ -58,6 +58,33 @@ export default function MineClient({
       setDetailId(null);
     } catch {
       setError("网络错误，请重试");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const update = async (id: string, input: PostcardUpdateInput) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(input),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || "保存失败");
+        return false;
+      }
+      const patch = (list: Postcard[]) =>
+        list.map((p) => (p.id === id ? { ...p, ...data.postcard } : p));
+      setClaimedList(patch);
+      setUploadedList(patch);
+      return true;
+    } catch {
+      setError("网络错误，请重试");
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -127,6 +154,7 @@ export default function MineClient({
           currentUserId={currentUserId}
           busy={busyId === detail.id}
           onReceive={receive}
+          onUpdate={update}
           onDelete={remove}
           onClose={() => setDetailId(null)}
         />

@@ -18,6 +18,13 @@ export type Postcard = {
   claimer_nickname?: string | null;
 };
 
+export type PostcardUpdateInput = {
+  recipientName: string;
+  note?: string;
+  sentAt?: string;
+  arrivedAt?: string;
+};
+
 export const STATUS_LABEL: Record<PostcardStatus, string> = {
   available: "待认领",
   claimed: "已认领",
