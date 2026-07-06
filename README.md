@@ -1,10 +1,11 @@
 # PostBack ✉️
 
-明信片认领互助网站 —— 上传你手上的明信片，帮它找到主人；认领属于你的那一张，收到后确认。
+ShanghaiTech民间明信片认领互助站 
+
 
 Serverless（Next.js App Router）应用，部署在 **Vercel**：
 
-- **认证**：Casdoor OAuth2（PKCE）接入 `auth.geekpie.club`（GeekPie 统一身份认证），实现方式与 NextDDL 一致
+- **认证**：Casdoor OAuth2（PKCE）接入 `auth.geekpie.club`（GeekPie 统一身份认证）
 - **数据库**：Postgres（Supabase 或 Neon，`pg` + `DATABASE_URL`）
 - **图片存储**：Vercel Blob（客户端直传，绕过 4.5MB 函数体积限制）
 
@@ -92,9 +93,4 @@ pnpm dev                     # http://localhost:3000
 5. Deploy。首次部署后，把 `PUBLIC_BASE_URL` 与 `NEXT_PUBLIC_CASDOOR_REDIRECT_URI`
    更新为正式域名并重新部署。
 
-## 认证流程（与 NextDDL 一致）
 
-`/login` 生成 PKCE `code_verifier/challenge` → 跳转 Casdoor 授权 →
-`/auth/callback` 用 `code` 换 `access_token`、拉 `userinfo` →
-`POST /api/casdoor-session` 落库 upsert 用户、建 session、写 `httpOnly` cookie →
-`proxy.ts` 拦截未登录访问，`lib/auth.getCurrentUser()` 读 cookie 校验会话。
