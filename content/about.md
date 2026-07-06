@@ -1,3 +1,6 @@
+## 位置参考图
+![位置参考图](https://3bogykds3tvpkrsc.public.blob.vercel-storage.com/Weixin%20Image_20260706184535_4_26.jpeg)
+
 ## About PostBack
 
 上科大民间明信片认领互助
