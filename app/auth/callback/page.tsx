@@ -65,25 +65,61 @@ export default function CasdoorCallback() {
         code_verifier: verifier,
       });
 
-      const tokenRes = await fetch(`${base}/api/login/oauth/access_token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-          Accept: "application/json",
-        },
-        body,
-      });
-      const tokenJson = (await tokenRes.json()) as CasdoorTokenResponse;
-      const accessToken = tokenJson.access_token ?? tokenJson.accessToken;
-
-      if (!tokenRes.ok || !accessToken) {
-        setMessage(tokenJson.error_description || tokenJson.error || "换取 token 失败");
+      let tokenRes: Response;
+      try {
+        tokenRes = await fetch(`${base}/api/login/oauth/access_token`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            Accept: "application/json",
+          },
+          body,
+        });
+      } catch (err) {
+        // Most likely a CORS failure or network error hitting Casdoor directly
+        // from the browser — this never reaches our own server, so it won't
+        // show up in Vercel logs at all.
+        console.error("[auth/callback] token fetch failed", err);
+        setMessage(
+          `无法连接 Casdoor（换取 token 时网络错误，可能是 CORS）：${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
         return;
       }
 
-      const userInfoRes = await fetch(
-        `${base}/api/userinfo?accessToken=${encodeURIComponent(accessToken)}`
-      );
+      const tokenText = await tokenRes.text();
+      let tokenJson: CasdoorTokenResponse;
+      try {
+        tokenJson = JSON.parse(tokenText) as CasdoorTokenResponse;
+      } catch {
+        console.error("[auth/callback] token response not JSON", tokenRes.status, tokenText);
+        setMessage(`换取 token 失败（HTTP ${tokenRes.status}）：${tokenText.slice(0, 200)}`);
+        return;
+      }
+      const accessToken = tokenJson.access_token ?? tokenJson.accessToken;
+
+      if (!tokenRes.ok || !accessToken) {
+        setMessage(
+          `换取 token 失败（HTTP ${tokenRes.status}）：${
+            tokenJson.error_description || tokenJson.error || "未知错误"
+          }`
+        );
+        return;
+      }
+
+      let userInfoRes: Response;
+      try {
+        userInfoRes = await fetch(
+          `${base}/api/userinfo?accessToken=${encodeURIComponent(accessToken)}`
+        );
+      } catch (err) {
+        console.error("[auth/callback] userinfo fetch failed", err);
+        setMessage(
+          `获取用户信息网络错误：${err instanceof Error ? err.message : String(err)}`
+        );
+        return;
+      }
       let userInfo: CasdoorUserInfo | null = userInfoRes.ok
         ? ((await userInfoRes.json()) as CasdoorUserInfo)
         : null;
@@ -117,7 +153,7 @@ export default function CasdoorCallback() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setMessage(data?.error || "创建会话失败");
+        setMessage(`创建会话失败（HTTP ${res.status}）：${data?.error || "未知错误"}`);
         return;
       }
 
@@ -126,12 +162,17 @@ export default function CasdoorCallback() {
       window.location.assign("/");
     };
 
-    run().catch(() => setMessage("登录失败，请重试"));
+    run().catch((err) => {
+      console.error("[auth/callback] unexpected error", err);
+      setMessage(
+        `登录失败，请重试（${err instanceof Error ? err.message : String(err)}）`
+      );
+    });
   }, []);
 
   return (
-    <main className="flex min-h-screen items-center justify-center">
-      <p className="text-sm text-muted-foreground">{message}</p>
+    <main className="flex min-h-screen items-center justify-center px-6">
+      <p className="max-w-xl break-words text-center text-sm text-muted-foreground">{message}</p>
     </main>
   );
 }
