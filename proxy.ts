@@ -7,7 +7,8 @@ export function proxy(request: NextRequest) {
   const session = request.cookies.get("session");
   const { pathname } = request.nextUrl;
 
-  const isPublic = pathname === "/login" || pathname === "/auth/callback";
+  const isPublic =
+    pathname === "/login" || pathname === "/about" || pathname === "/auth/callback";
 
   if (!session && !isPublic) {
     const origin = getPublicOrigin(request);

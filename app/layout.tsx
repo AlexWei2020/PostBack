@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import VersionFooter from "@/components/version-footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="zh-CN" suppressHydrationWarning>
-      <body>{children}</body>
+      <body>
+        {children}
+        <VersionFooter />
+      </body>
     </html>
   );
 }

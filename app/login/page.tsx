@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 const CODE_VERIFIER_KEY = "pkce_verifier";
 const STATE_KEY = "pkce_state";
 
@@ -61,6 +63,12 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6">
+      <Link
+        href="/about"
+        className="fixed right-4 top-4 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+      >
+        关于
+      </Link>
       <div className="text-center">
         <div className="mb-4 text-5xl">✉️</div>
         <h1 className="text-3xl font-bold tracking-tight">PostBack</h1>

@@ -31,6 +31,12 @@ export default async function Nav() {
           >
             我的
           </Link>
+          <Link
+            href="/about"
+            className="rounded-md px-3 py-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground"
+          >
+            关于
+          </Link>
           {user && (
             <div className="ml-2 flex items-center gap-2 border-l border-border pl-3">
               <span className="hidden text-muted-foreground sm:inline">

@@ -14,6 +14,7 @@ Serverless（Next.js App Router）应用，部署在 **Vercel**：
 2. **认领** — 任何登录用户可认领「待认领」的明信片到自己的账户
 3. **确认收货** — 认领人收到实物后确认，状态流转：`待认领 → 已认领 → 已收到`
 4. **管理记录** — 上传者可修改或删除自己上传的明信片；认领者在确认收到后也可删除记录
+5. **关于页面** — 右上角入口，内容来自 `content/about.md`，可用 Markdown 直接维护
 
 ## 技术栈
 
@@ -27,6 +28,7 @@ app/
   page.tsx + home-client.tsx      明信片广场（列表 + 认领）
   upload/                         上传页（Blob 客户端直传）
   mine/                           我的（我认领的 / 我上传的 + 确认收货）
+  about/                          关于页（渲染 content/about.md）
   login/                          登录页（发起 Casdoor PKCE）
   auth/callback/                  OAuth 回调（换 token → 建会话）
   api/
@@ -37,6 +39,7 @@ app/
     postcards/[id]/receive/          确认收货
 components/                        Nav、明信片卡片、退出按钮
 lib/                              db / auth / types / public-origin
+content/about.md                  关于页 Markdown 内容
 proxy.ts                         未登录拦截（Next 16 proxy 约定）
 scripts/init.sql                 建表 SQL
 ```
