@@ -3,10 +3,16 @@ import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureImageHashColumn, normalizeImageHash } from "@/lib/postcard-image-hash";
 import { ensurePostcardMetadataColumns } from "@/lib/schema";
+import type { PostcardCounts } from "@/lib/types";
 
 // GET /api/postcards            -> all postcards (newest first)
 // GET /api/postcards?status=available
 // GET /api/postcards?mine=1     -> postcards claimed by the current user
+function positiveInt(value: string | null, fallback: number) {
+  const n = Number(value);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
 export async function GET(request: Request) {
   const user = await getCurrentUser();
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
@@ -14,37 +20,77 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
   const mine = searchParams.get("mine");
+  const page = positiveInt(searchParams.get("page"), 1);
+  const pageSize = Math.min(100, positiveInt(searchParams.get("pageSize"), 20));
+  const offset = (page - 1) * pageSize;
 
-  const conditions: string[] = [];
-  const params: unknown[] = [];
+  const baseConditions: string[] = [];
+  const baseParams: unknown[] = [];
 
   if (mine === "1") {
-    params.push(user.id);
-    conditions.push(`p.claimer_id = $${params.length}`);
+    baseParams.push(user.id);
+    baseConditions.push(`p.claimer_id = $${baseParams.length}`);
   }
+
+  const conditions = [...baseConditions];
+  const params = [...baseParams];
   if (status && ["available", "claimed", "received"].includes(status)) {
     params.push(status);
     conditions.push(`p.status = $${params.length}`);
   }
 
   const where = conditions.length ? `where ${conditions.join(" and ")}` : "";
+  const baseWhere = baseConditions.length ? `where ${baseConditions.join(" and ")}` : "";
 
-  const result = await pool.query(
-    `
-    select
-      p.*,
-      up.nickname as uploader_nickname,
-      cl.nickname as claimer_nickname
-    from postcards p
-    left join users up on p.uploader_id = up.id
-    left join users cl on p.claimer_id = cl.id
-    ${where}
-    order by p.created_at desc
-    `,
-    params
-  );
+  params.push(pageSize, offset);
+  const limitParam = params.length - 1;
+  const offsetParam = params.length;
 
-  return NextResponse.json({ postcards: result.rows, currentUserId: user.id });
+  const [result, countResult] = await Promise.all([
+    pool.query(
+      `
+      select
+        p.*,
+        up.nickname as uploader_nickname,
+        cl.nickname as claimer_nickname
+      from postcards p
+      left join users up on p.uploader_id = up.id
+      left join users cl on p.claimer_id = cl.id
+      ${where}
+      order by p.created_at desc
+      limit $${limitParam} offset $${offsetParam}
+      `,
+      params
+    ),
+    pool.query(
+      `
+      select p.status, count(*)::int as count
+      from postcards p
+      ${baseWhere}
+      group by p.status
+      `,
+      baseParams
+    ),
+  ]);
+
+  const counts: PostcardCounts = { all: 0, available: 0, claimed: 0, received: 0 };
+  for (const row of countResult.rows) {
+    if (row.status in counts) {
+      counts[row.status as keyof PostcardCounts] = row.count;
+      counts.all += row.count;
+    }
+  }
+  const total =
+    status && ["available", "claimed", "received"].includes(status)
+      ? counts[status as keyof PostcardCounts]
+      : counts.all;
+
+  return NextResponse.json({
+    postcards: result.rows,
+    counts,
+    pagination: { page, pageSize, total },
+    currentUserId: user.id,
+  });
 }
 
 // POST /api/postcards  { imageUrl, recipientName, pickupLocation?, note?, sentAt?, arrivedAt?, imageHash? }

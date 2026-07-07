@@ -1,4 +1,7 @@
 export type PostcardStatus = "available" | "claimed" | "received";
+export type PostcardFilter = "all" | PostcardStatus;
+
+export type PostcardCounts = Record<PostcardFilter, number>;
 
 export type Postcard = {
   id: string;
