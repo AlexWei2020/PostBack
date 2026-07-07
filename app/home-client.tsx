@@ -61,7 +61,7 @@ export default function HomeClient({
 
   const detail = useMemo(
     () => postcards.find((p) => p.id === detailId) ?? null,
-    [postcards, detailId]
+    [postcards, detailId],
   );
 
   const loadPage = async ({
@@ -83,7 +83,9 @@ export default function HomeClient({
       if (nextFilter !== "all") params.set("status", nextFilter);
 
       const res = await fetch(`/api/postcards?${params.toString()}`);
-      const data = (await res.json().catch(() => ({}))) as PostcardsPageResponse;
+      const data = (await res
+        .json()
+        .catch(() => ({}))) as PostcardsPageResponse;
       if (!res.ok) {
         setError(data?.error || "加载失败");
         return;
@@ -114,7 +116,11 @@ export default function HomeClient({
     await actWithMethod(id, path, "POST");
   };
 
-  const actWithMethod = async (id: string, path: string, method: "POST" | "DELETE") => {
+  const actWithMethod = async (
+    id: string,
+    path: string,
+    method: "POST" | "DELETE",
+  ) => {
     setBusyId(id);
     setError(null);
     try {
@@ -167,7 +173,7 @@ export default function HomeClient({
         return false;
       }
       setPostcards((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, ...data.postcard } : p))
+        prev.map((p) => (p.id === id ? { ...p, ...data.postcard } : p)),
       );
       return true;
     } catch {
@@ -198,53 +204,6 @@ export default function HomeClient({
         ))}
       </div>
 
-      <div className="mb-5 flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          显示第 {total === 0 ? 0 : pageStart + 1}-{pageEnd} 张，共 {total} 张
-          {loadingPage ? "，加载中…" : ""}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-2">
-            <span>每页</span>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={pageSize}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                if (!Number.isFinite(next)) return;
-                loadPage({
-                  nextPage: 1,
-                  nextPageSize: Math.min(100, Math.max(1, Math.floor(next))),
-                });
-              }}
-              className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-base text-foreground outline-none ring-ring focus:ring-2 sm:text-sm"
-            />
-            <span>张</span>
-          </label>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => loadPage({ nextPage: Math.max(1, currentPage - 1) })}
-              disabled={currentPage <= 1 || loadingPage}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              上一页
-            </button>
-            <span className="min-w-16 text-center">
-              {currentPage}/{pageCount}
-            </span>
-            <button
-              onClick={() => loadPage({ nextPage: Math.min(pageCount, currentPage + 1) })}
-              disabled={currentPage >= pageCount || loadingPage}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              下一页
-            </button>
-          </div>
-        </div>
-      </div>
-
       {error && (
         <p className="mb-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-red-600">
           {error}
@@ -253,7 +212,11 @@ export default function HomeClient({
 
       {total === 0 ? (
         <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
-          这里还没有明信片。<a href="/upload" className="text-primary underline">上传第一张</a>吧！
+          这里还没有明信片。
+          <a href="/upload" className="text-primary underline">
+            上传第一张
+          </a>
+          吧！
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -287,6 +250,60 @@ export default function HomeClient({
           onClose={() => setDetailId(null)}
         />
       )}
+      <div className="mt-6 flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-center sm:text-left">
+          显示第 {total === 0 ? 0 : pageStart + 1}-{pageEnd} 张，共 {total} 张
+          {loadingPage ? "，加载中…" : ""}
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              aria-label="上一页"
+              onClick={() =>
+                loadPage({ nextPage: Math.max(1, currentPage - 1) })
+              }
+              disabled={currentPage <= 1 || loadingPage}
+              className="grid h-8 w-8 place-items-center rounded-full border border-border text-lg leading-none text-foreground transition hover:border-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              ‹
+            </button>
+            <span className="min-w-16 text-center font-medium text-foreground">
+              {currentPage}/{pageCount}
+            </span>
+            <button
+              type="button"
+              aria-label="下一页"
+              onClick={() =>
+                loadPage({ nextPage: Math.min(pageCount, currentPage + 1) })
+              }
+              disabled={currentPage >= pageCount || loadingPage}
+              className="grid h-8 w-8 place-items-center rounded-full border border-border text-lg leading-none text-foreground transition hover:border-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
+            >
+              ›
+            </button>
+          </div>
+          <label className="flex items-center gap-2">
+            <span>每页</span>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={pageSize}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                if (!Number.isFinite(next)) return;
+                loadPage({
+                  nextPage: 1,
+                  nextPageSize: Math.min(100, Math.max(1, Math.floor(next))),
+                });
+              }}
+              className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-base text-foreground outline-none ring-ring focus:ring-2 sm:text-sm"
+            />
+            <span>张</span>
+          </label>
+        </div>
+      </div>
     </div>
   );
 }

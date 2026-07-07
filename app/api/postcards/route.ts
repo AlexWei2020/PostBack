@@ -21,7 +21,7 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const mine = searchParams.get("mine");
   const page = positiveInt(searchParams.get("page"), 1);
-  const pageSize = Math.min(100, positiveInt(searchParams.get("pageSize"), 20));
+  const pageSize = Math.min(100, positiveInt(searchParams.get("pageSize"), 21));
   const offset = (page - 1) * pageSize;
 
   const baseConditions: string[] = [];

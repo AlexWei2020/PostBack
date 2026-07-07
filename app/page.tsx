@@ -5,7 +5,7 @@ import HomeClient from "./home-client";
 import type { Postcard, PostcardCounts } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 21;
 
 export default async function HomePage() {
   const user = await getCurrentUser();
