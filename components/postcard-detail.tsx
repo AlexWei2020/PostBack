@@ -62,6 +62,8 @@ export default function PostcardDetail({
   onReceive,
   onCancelClaim,
   onCancelReceive,
+  onHide,
+  onUnhide,
   onUpdate,
   onDelete,
   onClose,
@@ -73,6 +75,8 @@ export default function PostcardDetail({
   onReceive?: (id: string) => void;
   onCancelClaim?: (id: string) => void;
   onCancelReceive?: (id: string) => void;
+  onHide?: (id: string) => void;
+  onUnhide?: (id: string) => void;
   onUpdate?: (id: string, input: PostcardUpdateInput) => boolean | Promise<boolean>;
   onDelete?: (id: string) => void;
   onClose: () => void;
@@ -87,6 +91,10 @@ export default function PostcardDetail({
   const canEdit = isUploader && !!onUpdate;
   const canDelete =
     (isUploader || (isClaimer && postcard.status === "received")) && !!onDelete;
+  const canHideToggle =
+    isClaimer &&
+    (postcard.status === "claimed" || postcard.status === "received") &&
+    (!!onHide || !!onUnhide);
 
   useEffect(() => {
     setConfirmDelete(false);
@@ -260,6 +268,12 @@ export default function PostcardDetail({
                 <p className="text-lg font-semibold">{postcard.recipient_name}</p>
               </div>
 
+              {postcard.hidden_by_claimer && (
+                <p className="mb-3 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+                  已隐藏 · 仅自己可见（不在广场展示）
+                </p>
+              )}
+
               {postcard.note && (
                 <p className="mb-3 whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
                   {postcard.note}
@@ -329,6 +343,28 @@ export default function PostcardDetail({
               >
                 {busy ? "处理中…" : "取消认领"}
               </button>
+            )}
+
+            {!editing && canHideToggle && (
+              postcard.hidden_by_claimer
+                ? onUnhide && (
+                    <button
+                      onClick={() => onUnhide(postcard.id)}
+                      disabled={busy}
+                      className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                    >
+                      {busy ? "处理中…" : "取消隐藏（重新在广场展示）"}
+                    </button>
+                  )
+                : onHide && (
+                    <button
+                      onClick={() => onHide(postcard.id)}
+                      disabled={busy}
+                      className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                    >
+                      {busy ? "处理中…" : "隐藏（仅自己可见）"}
+                    </button>
+                  )
             )}
 
             {canEdit && !editing && (

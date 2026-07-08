@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureImageHashColumn, normalizeImageHash } from "@/lib/postcard-image-hash";
-import { ensurePostcardMetadataColumns } from "@/lib/schema";
+import { ensurePostcardMetadataColumns, ensurePostcardHiddenColumn } from "@/lib/schema";
 import type { PostcardCounts } from "@/lib/types";
 
-// GET /api/postcards            -> all postcards (newest first)
-// GET /api/postcards?status=available
-// GET /api/postcards?mine=1     -> postcards claimed by the current user
+// GET /api/postcards                    -> plaza, all postcards (newest first)
+// GET /api/postcards?status=available   -> plaza, filtered by status
+// GET /api/postcards?scope=claimed      -> "我的" 里我认领的明信片（分页）
+// GET /api/postcards?scope=uploaded     -> "我的" 里我上传的明信片（分页）
 function positiveInt(value: string | null, fallback: number) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
@@ -19,18 +20,70 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
-  const mine = searchParams.get("mine");
+  const scope = searchParams.get("scope"); // "claimed" | "uploaded" | null (plaza)
   const page = positiveInt(searchParams.get("page"), 1);
   const pageSize = Math.min(100, positiveInt(searchParams.get("pageSize"), 21));
   const offset = (page - 1) * pageSize;
 
+  if (scope === "claimed" || scope === "uploaded") {
+    const orderBy =
+      scope === "claimed"
+        ? "p.claimed_at desc nulls last, p.created_at desc"
+        : "p.created_at desc";
+    const conditions = [`p.${scope === "claimed" ? "claimer_id" : "uploader_id"} = $1`];
+    const params: unknown[] = [user.id];
+    if (status && ["available", "claimed", "received"].includes(status)) {
+      params.push(status);
+      conditions.push(`p.status = $${params.length}`);
+    }
+    const where = `where ${conditions.join(" and ")}`;
+    params.push(pageSize, offset);
+    const limitParam = params.length - 1;
+    const offsetParam = params.length;
+
+    const [result, claimedCount, uploadedCount] = await Promise.all([
+      pool.query(
+        `
+        select
+          p.*,
+          up.nickname as uploader_nickname,
+          cl.nickname as claimer_nickname
+        from postcards p
+        left join users up on p.uploader_id = up.id
+        left join users cl on p.claimer_id = cl.id
+        ${where}
+        order by ${orderBy}
+        limit $${limitParam} offset $${offsetParam}
+        `,
+        params
+      ),
+      pool.query("select count(*)::int as count from postcards where claimer_id = $1", [
+        user.id,
+      ]),
+      pool.query("select count(*)::int as count from postcards where uploader_id = $1", [
+        user.id,
+      ]),
+    ]);
+
+    const scopeCounts = {
+      claimed: claimedCount.rows[0]?.count ?? 0,
+      uploaded: uploadedCount.rows[0]?.count ?? 0,
+    };
+    const total = scopeCounts[scope];
+
+    return NextResponse.json({
+      postcards: result.rows,
+      scopeCounts,
+      pagination: { page, pageSize, total },
+      currentUserId: user.id,
+    });
+  }
+
+  // 广场视图：排除被认领人隐藏的明信片。
   const baseConditions: string[] = [];
   const baseParams: unknown[] = [];
-
-  if (mine === "1") {
-    baseParams.push(user.id);
-    baseConditions.push(`p.claimer_id = $${baseParams.length}`);
-  }
+  const hiddenReady = await ensurePostcardHiddenColumn();
+  if (hiddenReady) baseConditions.push("p.hidden_by_claimer is not true");
 
   const conditions = [...baseConditions];
   const params = [...baseParams];

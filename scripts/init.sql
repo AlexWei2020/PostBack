@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS public.postcards (
   claimer_id     uuid,
   sent_at        date,           -- 寄出时间（可选登记）
   arrived_at     date,           -- 到达时间 / 落地戳（可选登记）
+  hidden_by_claimer boolean NOT NULL DEFAULT false,  -- 认领人隐藏后广场不可见
   created_at     timestamptz DEFAULT now(),
   claimed_at     timestamptz,
   received_at    timestamptz,
@@ -54,9 +55,21 @@ ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS sent_at    date;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS arrived_at date;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS image_hash text;
 ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS pickup_location text;
+ALTER TABLE public.postcards ADD COLUMN IF NOT EXISTS hidden_by_claimer boolean NOT NULL DEFAULT false;
 ALTER TABLE public.users ADD COLUMN IF NOT EXISTS recipient_names text[] NOT NULL DEFAULT '{}';
 
+-- 全站累计签收计数（单行表）。首次用当前 received 数量做基线。
+CREATE TABLE IF NOT EXISTS public.site_stats (
+  id             smallint PRIMARY KEY DEFAULT 1,
+  total_received bigint NOT NULL DEFAULT 0,
+  CONSTRAINT site_stats_singleton CHECK (id = 1)
+);
+INSERT INTO public.site_stats (id, total_received)
+SELECT 1, (SELECT count(*) FROM public.postcards WHERE status = 'received')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE INDEX IF NOT EXISTS postcards_status_idx     ON public.postcards (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS postcards_hidden_idx      ON public.postcards (hidden_by_claimer);
 CREATE INDEX IF NOT EXISTS postcards_claimer_idx    ON public.postcards (claimer_id);
 CREATE INDEX IF NOT EXISTS postcards_image_hash_idx ON public.postcards (image_hash);
 CREATE INDEX IF NOT EXISTS postcards_recipient_name_match_idx ON public.postcards ((lower(trim(recipient_name))));
