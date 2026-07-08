@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { bumpReceivedCount } from "@/lib/schema";
 
 // POST /api/postcards/[id]/receive -> confirm receipt (claimer only)
 export async function POST(
@@ -29,6 +30,7 @@ export async function POST(
     );
   }
 
+  await bumpReceivedCount(1); // 累计签收 +1
   return NextResponse.json({ postcard: result.rows[0] });
 }
 
@@ -59,5 +61,6 @@ export async function DELETE(
     );
   }
 
+  await bumpReceivedCount(-1); // 取消签收 -1
   return NextResponse.json({ postcard: result.rows[0] });
 }

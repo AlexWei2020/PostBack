@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { ensureImageHashColumn, normalizeImageHash } from "@/lib/postcard-image-hash";
-import { ensurePostcardMetadataColumns } from "@/lib/schema";
+import { ensurePostcardMetadataColumns, ensurePostcardHiddenColumn } from "@/lib/schema";
 import type { PostcardCounts } from "@/lib/types";
 
 // GET /api/postcards            -> all postcards (newest first)
@@ -30,6 +30,10 @@ export async function GET(request: Request) {
   if (mine === "1") {
     baseParams.push(user.id);
     baseConditions.push(`p.claimer_id = $${baseParams.length}`);
+  } else {
+    // 广场视图：排除被认领人隐藏的明信片。
+    const hiddenReady = await ensurePostcardHiddenColumn();
+    if (hiddenReady) baseConditions.push("p.hidden_by_claimer is not true");
   }
 
   const conditions = [...baseConditions];

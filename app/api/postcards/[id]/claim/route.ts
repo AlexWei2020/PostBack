@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { bumpReceivedCount } from "@/lib/schema";
 
 // POST /api/postcards/[id]/claim  -> claim an available postcard
 export async function POST(
@@ -43,17 +44,21 @@ export async function DELETE(
 
   const { id } = await params;
 
+  // 捕获取消前的状态：若原本是 received，取消认领同时撤销了签收，需 -1。
   const result = await pool.query(
     `
-    update postcards
+    with target as (
+      select id, status from postcards
+      where id = $1 and claimer_id = $2 and status in ('claimed', 'received')
+    )
+    update postcards p
     set status = 'available',
         claimer_id = null,
         claimed_at = null,
         received_at = null
-    where id = $1
-      and claimer_id = $2
-      and status in ('claimed', 'received')
-    returning *
+    from target
+    where p.id = target.id
+    returning p.*, target.status as prev_status
     `,
     [id, user.id]
   );
@@ -65,5 +70,11 @@ export async function DELETE(
     );
   }
 
-  return NextResponse.json({ postcard: result.rows[0] });
+  if (result.rows[0].prev_status === "received") {
+    await bumpReceivedCount(-1); // 取消认领时若已签收，累计 -1
+  }
+
+  const { prev_status, ...postcard } = result.rows[0];
+  void prev_status;
+  return NextResponse.json({ postcard });
 }

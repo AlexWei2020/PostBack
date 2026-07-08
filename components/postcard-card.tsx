@@ -73,6 +73,9 @@ export default function PostcardCard({
         {postcard.pickup_location && (
           <p className="text-xs text-muted-foreground">取件地点：{postcard.pickup_location}</p>
         )}
+        {postcard.hidden_by_claimer && (
+          <p className="text-xs text-muted-foreground">🙈 已隐藏 · 仅自己可见</p>
+        )}
 
         <div className="mt-auto pt-2">
           {postcard.status === "available" && onClaim && (

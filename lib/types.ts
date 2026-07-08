@@ -13,6 +13,7 @@ export type Postcard = {
   status: PostcardStatus;
   uploader_id: string | null;
   claimer_id: string | null;
+  hidden_by_claimer?: boolean;
   sent_at: string | null;
   arrived_at: string | null;
   created_at: string;

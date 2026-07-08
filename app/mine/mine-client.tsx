@@ -68,6 +68,29 @@ export default function MineClient({
     }
   };
 
+  const toggleHide = async (id: string, hidden: boolean) => {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}/hide`, {
+        method: hidden ? "POST" : "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.error || (hidden ? "隐藏失败" : "取消隐藏失败"));
+        return;
+      }
+      const patch = (list: Postcard[]) =>
+        list.map((p) => (p.id === id ? { ...p, ...data.postcard } : p));
+      setClaimedList(patch);
+      setUploadedList(patch);
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const remove = async (id: string) => {
     setBusyId(id);
     setError(null);
@@ -186,6 +209,8 @@ export default function MineClient({
           onReceive={receive}
           onCancelClaim={cancelClaim}
           onCancelReceive={(id) => receiveWithMethod(id, "DELETE")}
+          onHide={(id) => toggleHide(id, true)}
+          onUnhide={(id) => toggleHide(id, false)}
           onUpdate={update}
           onDelete={remove}
           onClose={() => setDetailId(null)}
