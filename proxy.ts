@@ -8,7 +8,10 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isPublic =
-    pathname === "/login" || pathname === "/about" || pathname === "/auth/callback";
+    pathname === "/login" ||
+    pathname === "/about" ||
+    pathname === "/help" ||
+    pathname === "/auth/callback";
 
   if (!session && !isPublic) {
     const origin = getPublicOrigin(request);

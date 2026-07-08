@@ -270,7 +270,7 @@ export default function PostcardDetail({
 
               {postcard.hidden_by_claimer && (
                 <p className="mb-3 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-                  🙈 已隐藏 · 仅自己可见（不在广场展示）
+                  已隐藏 · 仅自己可见（不在广场展示）
                 </p>
               )}
 
