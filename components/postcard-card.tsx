@@ -5,7 +5,7 @@ import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 
 const STATUS_STYLE: Record<Postcard["status"], string> = {
-  available: "bg-primary/10 text-primary",
+  available: "bg-primary text-primary-foreground",
   claimed: "bg-amber-100 text-amber-700",
   received: "bg-emerald-100 text-emerald-700",
 };
