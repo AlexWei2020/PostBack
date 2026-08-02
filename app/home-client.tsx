@@ -72,12 +72,16 @@ export default function HomeClient({
     nextFilter = filter,
     nextPage = currentPage,
     nextPageSize = pageSize,
+    silent = false,
   }: {
     nextFilter?: PostcardFilter;
     nextPage?: number;
     nextPageSize?: number;
+    // silent: reconcile in the background after an optimistic action — no
+    // grid dimming, no scroll jump. Used so 认领/签收 feel instant.
+    silent?: boolean;
   } = {}) => {
-    setLoadingPage(true);
+    if (!silent) setLoadingPage(true);
     setError(null);
     try {
       const params = new URLSearchParams({
@@ -100,7 +104,7 @@ export default function HomeClient({
       const nextPageCount = Math.max(1, Math.ceil(nextTotal / nextPageSize));
       const safePage = Math.min(nextPage, nextPageCount);
       if (safePage !== nextPage) {
-        await loadPage({ nextFilter, nextPage: safePage, nextPageSize });
+        await loadPage({ nextFilter, nextPage: safePage, nextPageSize, silent });
         return;
       }
 
@@ -109,16 +113,27 @@ export default function HomeClient({
       setPage(safePage);
       setCounts(nextCounts);
       setPostcards(data.postcards || []);
-      // 换页/换板块后把列表顶部滚回视野，避免停在旧的滚动位置。
-      requestAnimationFrame(() =>
-        gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      );
+      // 换页/换板块后把列表顶部滚回视野；静默重同步（认领后）不打断滚动。
+      if (!silent) {
+        requestAnimationFrame(() =>
+          gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        );
+      }
     } catch {
-      setError("网络错误，请重试");
+      if (!silent) setError("网络错误，请重试");
     } finally {
-      setLoadingPage(false);
+      if (!silent) setLoadingPage(false);
       setPendingFilter(null);
     }
+  };
+
+  // 认领/签收/取消：先本地即时改状态（乐观），再后台静默与服务器对齐。
+  // 让点击"秒响应"，不再整格变灰、跳回顶部。
+  const optimisticStatus: Record<string, (p: Postcard) => Partial<Postcard>> = {
+    "claim:POST": () => ({ status: "claimed", claimer_id: currentUserId }),
+    "receive:POST": () => ({ status: "received" }),
+    "claim:DELETE": () => ({ status: "available", claimer_id: null }),
+    "receive:DELETE": () => ({ status: "claimed" }),
   };
 
   const act = async (id: string, path: string) => {
@@ -132,38 +147,44 @@ export default function HomeClient({
   ) => {
     setBusyId(id);
     setError(null);
+    const patch = optimisticStatus[`${path}:${method}`];
+    if (patch) {
+      setPostcards((prev) =>
+        prev.map((p) => (p.id === id ? { ...p, ...patch(p) } : p)),
+      );
+    }
     try {
       const res = await fetch(`/api/postcards/${id}/${path}`, { method });
       const data = await res.json();
       if (!res.ok) {
         setError(data?.error || "操作失败");
-        return;
+      } else {
+        setDetailId(null);
       }
-      setDetailId(null);
-      await loadPage();
     } catch {
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
+      // 后台对齐：修正计数、分页归属，成功/失败都以服务器为准。
+      loadPage({ silent: true });
     }
   };
 
   const remove = async (id: string) => {
     setBusyId(id);
     setError(null);
+    // 乐观移除，弹窗立即关闭。
+    setPostcards((prev) => prev.filter((p) => p.id !== id));
+    setDetailId(null);
     try {
       const res = await fetch(`/api/postcards/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.error || "删除失败");
-        return;
-      }
-      setDetailId(null);
-      await loadPage();
+      if (!res.ok) setError(data?.error || "删除失败");
     } catch {
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
+      loadPage({ silent: true });
     }
   };
 

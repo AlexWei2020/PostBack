@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 
@@ -32,6 +32,7 @@ function PostcardCard({
   onOpen?: (id: string) => void;
 }) {
   const isClaimer = postcard.claimer_id === currentUserId;
+  const [imgLoaded, setImgLoaded] = useState(false);
   // Action buttons live inside the clickable card — stop them from also
   // opening the detail modal.
   const stop =
@@ -47,7 +48,11 @@ function PostcardCard({
         onOpen ? "cursor-pointer" : ""
       }`}
     >
-      <div className="relative aspect-[3/2] w-full bg-muted">
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">
+        {/* Shimmer placeholder until the image paints — avoids a hard pop-in. */}
+        {!imgLoaded && (
+          <span className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-secondary" />
+        )}
         {/* Blob images are on an allowed remote host; unoptimized keeps it simple */}
         <Image
           src={postcard.image_url}
@@ -57,7 +62,10 @@ function PostcardCard({
           loading={priority ? undefined : "lazy"}
           quality={55}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
-          className="object-cover"
+          onLoad={() => setImgLoaded(true)}
+          className={`object-cover transition-opacity duration-500 ${
+            imgLoaded ? "opacity-100" : "opacity-0"
+          }`}
         />
         <span
           className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[postcard.status]}`}
