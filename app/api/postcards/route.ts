@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { pool } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
-import { ensureImageHashColumn, normalizeImageHash } from "@/lib/postcard-image-hash";
-import { ensurePostcardMetadataColumns, ensurePostcardHiddenColumn } from "@/lib/schema";
+import { normalizeImageHash } from "@/lib/postcard-image-hash";
+import { ensureSchema } from "@/lib/schema";
 import type { PostcardCounts } from "@/lib/types";
 
 // GET /api/postcards                    -> plaza, all postcards (newest first)
@@ -15,7 +15,8 @@ function positiveInt(value: string | null, fallback: number) {
 }
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
+  // getCurrentUser + one-time schema/index check are independent.
+  const [user, schema] = await Promise.all([getCurrentUser(), ensureSchema()]);
   if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -82,8 +83,7 @@ export async function GET(request: Request) {
   // 广场视图：排除被认领人隐藏的明信片。
   const baseConditions: string[] = [];
   const baseParams: unknown[] = [];
-  const hiddenReady = await ensurePostcardHiddenColumn();
-  if (hiddenReady) baseConditions.push("p.hidden_by_claimer is not true");
+  if (schema.hidden) baseConditions.push("p.hidden_by_claimer is not true");
 
   const conditions = [...baseConditions];
   const params = [...baseParams];
@@ -179,8 +179,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "取件地点过长" }, { status: 400 });
   }
 
-  const canStoreMetadata = await ensurePostcardMetadataColumns();
-  const canStoreHash = imageHash ? await ensureImageHashColumn() : false;
+  const schema = await ensureSchema();
+  const canStoreMetadata = schema.metadata;
+  const canStoreHash = imageHash ? schema.hash : false;
   let result;
 
   if (canStoreHash && canStoreMetadata) {

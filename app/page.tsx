@@ -1,6 +1,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { pool } from "@/lib/db";
-import { getTotalReceived, ensurePostcardHiddenColumn } from "@/lib/schema";
+import { getTotalReceived, ensureSchema } from "@/lib/schema";
 import Nav from "@/components/nav";
 import HomeClient from "./home-client";
 import type { Postcard, PostcardCounts } from "@/lib/types";
@@ -9,18 +9,20 @@ export const dynamic = "force-dynamic";
 const DEFAULT_PAGE_SIZE = 21;
 
 export default async function HomePage() {
-  const user = await getCurrentUser();
+  // Session lookup and the one-time schema/index check are independent — run
+  // them together instead of serially.
+  const [user, schema] = await Promise.all([getCurrentUser(), ensureSchema()]);
   // Middleware guarantees a session, but guard anyway.
   if (!user) return null;
 
-  const totalReceived = await getTotalReceived();
-
   // 排除被认领人隐藏的明信片（广场对所有人不可见）。
-  const hiddenReady = await ensurePostcardHiddenColumn();
-  const listHidden = hiddenReady ? "where p.hidden_by_claimer is not true" : "";
-  const countHidden = hiddenReady ? "where hidden_by_claimer is not true" : "";
+  const listHidden = schema.hidden ? "where p.hidden_by_claimer is not true" : "";
+  const countHidden = schema.hidden ? "where hidden_by_claimer is not true" : "";
 
-  const [result, countResult] = await Promise.all([
+  // Cumulative counter, plaza page, and status counts have no data dependency
+  // on each other — fetch all three in parallel.
+  const [totalReceived, result, countResult] = await Promise.all([
+    getTotalReceived(),
     pool.query(
       `
       select

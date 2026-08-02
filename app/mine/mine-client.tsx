@@ -68,12 +68,15 @@ export default function MineClient({
     nextScope = scope,
     nextPage = currentPage,
     nextPageSize = pageSize,
+    silent = false,
   }: {
     nextScope?: Scope;
     nextPage?: number;
     nextPageSize?: number;
+    // silent: 乐观操作后的后台对齐，不变灰、不跳顶部。
+    silent?: boolean;
   } = {}) => {
-    setLoadingPage(true);
+    if (!silent) setLoadingPage(true);
     setError(null);
     try {
       const params = new URLSearchParams({
@@ -96,7 +99,7 @@ export default function MineClient({
       const nextPageCount = Math.max(1, Math.ceil(nextTotal / nextPageSize));
       const safePage = Math.min(nextPage, nextPageCount);
       if (safePage !== nextPage) {
-        await loadPage({ nextScope, nextPage: safePage, nextPageSize });
+        await loadPage({ nextScope, nextPage: safePage, nextPageSize, silent });
         return;
       }
 
@@ -105,14 +108,16 @@ export default function MineClient({
       setPage(safePage);
       setScopeCounts(nextCounts);
       setPostcards(data.postcards || []);
-      // 换页/换 tab 后把列表顶部滚回视野，避免停在旧的滚动位置。
-      requestAnimationFrame(() =>
-        gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      );
+      // 换页/换 tab 后把列表顶部滚回视野；静默重同步不打断滚动。
+      if (!silent) {
+        requestAnimationFrame(() =>
+          gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+        );
+      }
     } catch {
-      setError("网络错误，请重试");
+      if (!silent) setError("网络错误，请重试");
     } finally {
-      setLoadingPage(false);
+      if (!silent) setLoadingPage(false);
       setPendingScope(null);
     }
   };
@@ -124,38 +129,39 @@ export default function MineClient({
   const receiveWithMethod = async (id: string, method: "POST" | "DELETE") => {
     setBusyId(id);
     setError(null);
+    // 乐观改状态：确认签收 -> received，取消签收 -> claimed。
+    const nextStatus = method === "POST" ? "received" : "claimed";
+    setPostcards((list) =>
+      list.map((p) => (p.id === id ? { ...p, status: nextStatus } : p)),
+    );
     try {
       const res = await fetch(`/api/postcards/${id}/receive`, { method });
       const data = await res.json();
-      if (!res.ok) {
-        setError(data?.error || "操作失败");
-        return;
-      }
-      setDetailId(null);
-      await loadPage();
+      if (!res.ok) setError(data?.error || "操作失败");
+      else setDetailId(null);
     } catch {
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
+      loadPage({ silent: true });
     }
   };
 
   const cancelClaim = async (id: string) => {
     setBusyId(id);
     setError(null);
+    // 取消认领后会离开"我认领的"列表，先本地移除。
+    setPostcards((list) => list.filter((p) => p.id !== id));
+    setDetailId(null);
     try {
       const res = await fetch(`/api/postcards/${id}/claim`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.error || "取消认领失败");
-        return;
-      }
-      setDetailId(null);
-      await loadPage();
+      if (!res.ok) setError(data?.error || "取消认领失败");
     } catch {
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
+      loadPage({ silent: true });
     }
   };
 
@@ -184,19 +190,17 @@ export default function MineClient({
   const remove = async (id: string) => {
     setBusyId(id);
     setError(null);
+    setPostcards((list) => list.filter((p) => p.id !== id));
+    setDetailId(null);
     try {
       const res = await fetch(`/api/postcards/${id}`, { method: "DELETE" });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(data?.error || "删除失败");
-        return;
-      }
-      setDetailId(null);
-      await loadPage();
+      if (!res.ok) setError(data?.error || "删除失败");
     } catch {
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
+      loadPage({ silent: true });
     }
   };
 

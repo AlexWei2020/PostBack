@@ -1,18 +1,20 @@
 "use client";
 
+import { memo, useState } from "react";
 import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 
 const STATUS_STYLE: Record<Postcard["status"], string> = {
-  available: "bg-primary/10 text-primary",
+  available: "bg-primary text-primary-foreground",
   claimed: "bg-amber-100 text-amber-700",
   received: "bg-emerald-100 text-emerald-700",
 };
 
-export default function PostcardCard({
+function PostcardCard({
   postcard,
   currentUserId,
   busy,
+  priority,
   onClaim,
   onReceive,
   onCancelClaim,
@@ -22,6 +24,7 @@ export default function PostcardCard({
   postcard: Postcard;
   currentUserId: string;
   busy?: boolean;
+  priority?: boolean;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
   onCancelClaim?: (id: string) => void;
@@ -29,6 +32,7 @@ export default function PostcardCard({
   onOpen?: (id: string) => void;
 }) {
   const isClaimer = postcard.claimer_id === currentUserId;
+  const [imgLoaded, setImgLoaded] = useState(false);
   // Action buttons live inside the clickable card — stop them from also
   // opening the detail modal.
   const stop =
@@ -44,16 +48,24 @@ export default function PostcardCard({
         onOpen ? "cursor-pointer" : ""
       }`}
     >
-      <div className="relative aspect-[3/2] w-full bg-muted">
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">
+        {/* Shimmer placeholder until the image paints — avoids a hard pop-in. */}
+        {!imgLoaded && (
+          <span className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-secondary" />
+        )}
         {/* Blob images are on an allowed remote host; unoptimized keeps it simple */}
         <Image
           src={postcard.image_url}
           alt={`寄给 ${postcard.recipient_name} 的明信片`}
           fill
-          loading="lazy"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
           quality={55}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
-          className="object-cover"
+          onLoad={() => setImgLoaded(true)}
+          className={`object-cover transition-opacity duration-500 ${
+            imgLoaded ? "opacity-100" : "opacity-0"
+          }`}
         />
         <span
           className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[postcard.status]}`}
@@ -146,3 +158,7 @@ export default function PostcardCard({
     </div>
   );
 }
+
+// Lists re-render on every claim/receive/paging action; memo skips cards whose
+// props are unchanged so only the affected card (and its image) touch the DOM.
+export default memo(PostcardCard);
