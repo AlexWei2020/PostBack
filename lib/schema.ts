@@ -5,6 +5,54 @@ let userRecipientNamesReady = false;
 let postcardHiddenReady = false;
 let siteStatsReady = false;
 
+export type SchemaFlags = { metadata: boolean; hidden: boolean; hash: boolean };
+
+// Consolidated, once-per-process schema check for the hot read paths
+// (广场 / 我的 / 首屏). Batches every `add column if not exists`, the
+// performance indexes, and the site_stats singleton into ONE round trip so a
+// cold start pays a single query instead of 3–4 serial ones. Idempotent, so a
+// fresh Supabase database is brought fully up to date on first request; an
+// existing database just no-ops. Failure degrades gracefully via the returned
+// flags, exactly like the granular helpers below.
+let schemaFlags: SchemaFlags | null = null;
+export async function ensureSchema(): Promise<SchemaFlags> {
+  if (schemaFlags) return schemaFlags;
+  try {
+    await pool.query(`
+      alter table public.postcards add column if not exists pickup_location text;
+      alter table public.postcards add column if not exists hidden_by_claimer boolean not null default false;
+      alter table public.postcards add column if not exists image_hash text;
+
+      create index if not exists postcards_created_at_idx on public.postcards (created_at desc);
+      create index if not exists postcards_status_idx on public.postcards (status);
+      create index if not exists postcards_claimer_idx on public.postcards (claimer_id, claimed_at desc);
+      create index if not exists postcards_uploader_idx on public.postcards (uploader_id, created_at desc);
+      create index if not exists postcards_image_hash_idx on public.postcards (image_hash);
+      create index if not exists postcards_plaza_idx
+        on public.postcards (created_at desc)
+        where hidden_by_claimer is not true;
+
+      create table if not exists public.site_stats (
+        id             smallint primary key default 1,
+        total_received bigint not null default 0,
+        constraint site_stats_singleton check (id = 1)
+      );
+      insert into public.site_stats (id, total_received)
+      select 1, (select count(*) from public.postcards where status = 'received')
+      on conflict (id) do nothing;
+    `);
+    // Everything above is now guaranteed; short-circuit the granular helpers.
+    postcardMetadataReady = true;
+    postcardHiddenReady = true;
+    siteStatsReady = true;
+    schemaFlags = { metadata: true, hidden: true, hash: true };
+    return schemaFlags;
+  } catch (err) {
+    console.error("Failed to ensure schema:", err);
+    return { metadata: false, hidden: false, hash: false };
+  }
+}
+
 export async function ensurePostcardMetadataColumns() {
   if (postcardMetadataReady) return true;
   try {

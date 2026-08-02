@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 
@@ -9,10 +10,11 @@ const STATUS_STYLE: Record<Postcard["status"], string> = {
   received: "bg-emerald-100 text-emerald-700",
 };
 
-export default function PostcardCard({
+function PostcardCard({
   postcard,
   currentUserId,
   busy,
+  priority,
   onClaim,
   onReceive,
   onCancelClaim,
@@ -22,6 +24,7 @@ export default function PostcardCard({
   postcard: Postcard;
   currentUserId: string;
   busy?: boolean;
+  priority?: boolean;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
   onCancelClaim?: (id: string) => void;
@@ -50,7 +53,8 @@ export default function PostcardCard({
           src={postcard.image_url}
           alt={`寄给 ${postcard.recipient_name} 的明信片`}
           fill
-          loading="lazy"
+          priority={priority}
+          loading={priority ? undefined : "lazy"}
           quality={55}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
           className="object-cover"
@@ -146,3 +150,7 @@ export default function PostcardCard({
     </div>
   );
 }
+
+// Lists re-render on every claim/receive/paging action; memo skips cards whose
+// props are unchanged so only the affected card (and its image) touch the DOM.
+export default memo(PostcardCard);

@@ -237,12 +237,13 @@ export default function HomeClient({
               loadingPage ? "pointer-events-none opacity-40" : ""
             }`}
           >
-            {postcards.map((p) => (
+            {postcards.map((p, index) => (
               <PostcardCard
                 key={p.id}
                 postcard={p}
                 currentUserId={currentUserId}
                 busy={busyId === p.id}
+                priority={index < 3}
                 onClaim={(id) => act(id, "claim")}
                 onReceive={(id) => act(id, "receive")}
                 onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}
