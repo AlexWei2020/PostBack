@@ -7,15 +7,23 @@ import LoadMoreFooter from "@/components/load-more-footer";
 import LinearProgress from "@/components/linear-progress";
 import Icon from "@/components/icon";
 import { useLoadMoreSentinel } from "@/lib/use-load-more";
+import type { MineScope, MineScopeCounts } from "@/lib/mine-scope";
 import type { Postcard, PostcardUpdateInput } from "@/lib/types";
 
-type Scope = "claimed" | "uploaded";
-type ScopeCounts = Record<Scope, number>;
+type Scope = MineScope;
+type ScopeCounts = MineScopeCounts;
 
 const TABS: { key: Scope; label: string }[] = [
   { key: "claimed", label: "我认领的" },
   { key: "uploaded", label: "我上传的" },
+  { key: "matched", label: "疑似属于我的" },
 ];
+
+const EMPTY_TEXT: Record<Scope, string> = {
+  claimed: "你还没有认领任何明信片。",
+  uploaded: "你还没有上传任何明信片。",
+  matched: "暂无匹配的待认领明信片。",
+};
 
 // 后台对齐一次最多重拉的张数，与接口 pageSize 上限一致。
 const MAX_SYNC_SIZE = 200;
@@ -34,11 +42,13 @@ type PostcardsPageResponse = {
 export default function MineClient({
   initialClaimed,
   initialScopeCounts,
+  hasRecipientNames,
   initialPageSize,
   currentUserId,
 }: {
   initialClaimed: Postcard[];
   initialScopeCounts: ScopeCounts;
+  hasRecipientNames: boolean;
   initialPageSize: number;
   currentUserId: string;
 }) {
@@ -169,6 +179,25 @@ export default function MineClient({
     () => loadMore(),
     hasMore && !loadingPage && !loadingMore && !syncing && !loadMoreFailed,
   );
+
+  // "疑似属于我的"里认领：先从列表移除（认领后不再属于该分类），计数同步调整。
+  const claim = async (id: string) => {
+    setBusyId(id);
+    setError(null);
+    setPostcards((list) => list.filter((p) => p.id !== id));
+    setScopeCounts((c) => ({ ...c, matched: Math.max(0, c.matched - 1), claimed: c.claimed + 1 }));
+    setDetailId(null);
+    try {
+      const res = await fetch(`/api/postcards/${id}/claim`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) setError(data?.error || "认领失败");
+    } catch {
+      setError("网络错误，请重试");
+    } finally {
+      setBusyId(null);
+      reload({ silent: true });
+    }
+  };
 
   const receive = async (id: string) => {
     await receiveWithMethod(id, "POST");
@@ -308,7 +337,16 @@ export default function MineClient({
       <div ref={gridRef} className="relative scroll-mt-20">
         {total === 0 ? (
           <div className="rounded-md bg-surface-container-low py-16 text-center text-body-medium text-on-surface-variant">
-            {scope === "claimed" ? "你还没有认领任何明信片。" : "你还没有上传任何明信片。"}
+            {EMPTY_TEXT[scope]}
+            {scope === "matched" && !hasRecipientNames && (
+              <>
+                <br />
+                <a href="/account" className="text-primary underline">
+                  设置常用收件名
+                </a>
+                后即可自动匹配。
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -327,6 +365,7 @@ export default function MineClient({
                 onCancelReceive={
                   scope === "claimed" ? (id) => receiveWithMethod(id, "DELETE") : undefined
                 }
+                onClaim={scope === "matched" ? claim : undefined}
                 onOpen={setDetailId}
               />
             ))}
@@ -342,6 +381,7 @@ export default function MineClient({
           postcard={detail}
           currentUserId={currentUserId}
           busy={busyId === detail.id}
+          onClaim={scope === "matched" ? claim : undefined}
           onReceive={receive}
           onCancelClaim={cancelClaim}
           onCancelReceive={(id) => receiveWithMethod(id, "DELETE")}

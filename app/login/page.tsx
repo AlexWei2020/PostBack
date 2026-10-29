@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTotalReceived } from "@/lib/schema";
 import LoginButton from "@/components/login-button";
+import Icon from "@/components/icon";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,9 @@ export default async function LoginPage() {
         关于
       </Link>
       <div className="card-elevated flex w-full max-w-sm flex-col items-center gap-6 px-6 py-8 text-center">
-        <div className="text-5xl">✉️</div>
+        <span className="grid h-16 w-16 place-items-center rounded-lg bg-primary-container text-on-primary-container">
+          <Icon name="mail" size={36} />
+        </span>
         <div>
           <h1 className="text-headline-medium text-on-surface">PostBack</h1>
           <p className="mt-2 text-body-medium text-on-surface-variant">
@@ -21,7 +24,8 @@ export default async function LoginPage() {
           </p>
         </div>
         <p className="inline-flex h-8 items-center gap-2 rounded-sm bg-tertiary-container px-3 text-label-large text-on-tertiary-container">
-          📮 已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
+          <Icon name="markunread_mailbox" size={18} />
+          已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
         </p>
         <LoginButton />
       </div>
