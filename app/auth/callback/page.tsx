@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { preconnect } from "react-dom";
 import {
   clearPkceFallbackCookies,
   CODE_VERIFIER_KEY,
@@ -74,10 +76,29 @@ function clearPkceState() {
   clearPkceFallbackCookies();
 }
 
+const CASDOOR_ORIGIN = (() => {
+  try {
+    return new URL(process.env.NEXT_PUBLIC_CASDOOR_SERVER_URL || "").origin;
+  } catch {
+    return null;
+  }
+})();
+
 export default function CasdoorCallback() {
-  const [message, setMessage] = useState("处理中…");
+  const router = useRouter();
+  const [message, setMessage] = useState("正在验证身份…");
+  // 出错时停掉转圈，只显示错误信息。
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    // 与下面向 Casdoor 换 token 并行：提前唤醒会话接口的冷启动和数据库连接。
+    fetch("/api/casdoor-session", { cache: "no-store" }).catch(() => {});
+
+    const fail = (text: string) => {
+      setFailed(true);
+      setMessage(text);
+    };
+
     const run = async () => {
       const url = new URL(window.location.href);
       const code = url.searchParams.get("code");
@@ -86,12 +107,12 @@ export default function CasdoorCallback() {
       const verifier = sessionStorage.getItem(CODE_VERIFIER_KEY) || readCookie(CODE_VERIFIER_KEY);
 
       if (!code || !state || !verifier || !expectedState) {
-        setMessage("参数缺失，请重新登录");
+        fail("参数缺失，请重新登录");
         clearPkceState();
         return;
       }
       if (state !== expectedState) {
-        setMessage("状态校验失败，请重新登录");
+        fail("状态校验失败，请重新登录");
         clearPkceState();
         return;
       }
@@ -103,7 +124,7 @@ export default function CasdoorCallback() {
         `${window.location.origin}/auth/callback`;
 
       if (!clientId || !serverUrl) {
-        setMessage("缺少 Casdoor 配置");
+        fail("缺少 Casdoor 配置");
         return;
       }
       const base = serverUrl.replace(/\/+$/, "");
@@ -131,7 +152,7 @@ export default function CasdoorCallback() {
           body,
         });
       } catch (err) {
-        setMessage(
+        fail(
           `无法连接 Casdoor（换取 token 网络错误）：${
             err instanceof Error ? err.message : String(err)
           }`
@@ -144,12 +165,12 @@ export default function CasdoorCallback() {
       try {
         tokenJson = JSON.parse(tokenText) as CasdoorTokenResponse;
       } catch {
-        setMessage(`换取 token 失败（HTTP ${tokenRes.status}）：${tokenText.slice(0, 200)}`);
+        fail(`换取 token 失败（HTTP ${tokenRes.status}）：${tokenText.slice(0, 200)}`);
         return;
       }
       const accessToken = tokenJson.access_token ?? tokenJson.accessToken;
       if (!tokenRes.ok || !accessToken) {
-        setMessage(
+        fail(
           `换取 token 失败（HTTP ${tokenRes.status}）：${
             tokenJson.error_description || tokenJson.error || "未知错误"
           }`
@@ -177,10 +198,11 @@ export default function CasdoorCallback() {
       }
 
       if (!userInfo || !(userInfo.id || userInfo.sub)) {
-        setMessage("无法从 token 解析用户信息");
+        fail("无法从 token 解析用户信息");
         return;
       }
 
+      setMessage("正在登录…");
       const res = await fetch("/api/casdoor-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -193,25 +215,39 @@ export default function CasdoorCallback() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setMessage(data?.error || `创建会话失败（HTTP ${res.status}）`);
+        fail(data?.error || `创建会话失败（HTTP ${res.status}）`);
         return;
       }
 
       clearPkceState();
-      window.location.assign("/");
+      setMessage("登录成功，正在进入广场…");
+      // 客户端路由跳转：复用已加载的 JS 与布局，只请求首页数据，比整页刷新快。
+      router.replace("/");
     };
 
     run().catch((err) => {
       console.error("[auth/callback] unexpected error", err);
-      setMessage(
+      fail(
         `登录失败，请重试（${err instanceof Error ? err.message : String(err)}）`
       );
     });
-  }, []);
+  }, [router]);
+
+  // 尽早与 Casdoor 建立连接（DNS/TLS），缩短换 token 请求的耗时。
+  if (CASDOOR_ORIGIN) preconnect(CASDOOR_ORIGIN, { crossOrigin: "anonymous" });
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-6">
-      <p className="max-w-xl break-words text-center text-sm text-muted-foreground">{message}</p>
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
+      {!failed && (
+        <span className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+      )}
+      <p
+        role="status"
+        aria-live="polite"
+        className="max-w-xl break-words text-center text-sm text-muted-foreground"
+      >
+        {message}
+      </p>
     </main>
   );
 }

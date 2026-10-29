@@ -15,8 +15,19 @@ export type SchemaFlags = { metadata: boolean; hidden: boolean; hash: boolean };
 // existing database just no-ops. Failure degrades gracefully via the returned
 // flags, exactly like the granular helpers below.
 let schemaFlags: SchemaFlags | null = null;
-export async function ensureSchema(): Promise<SchemaFlags> {
-  if (schemaFlags) return schemaFlags;
+// 并发调用（如首页同时 ensureSchema + getTotalReceived）共享同一次检查。
+let schemaPromise: Promise<SchemaFlags> | null = null;
+export function ensureSchema(): Promise<SchemaFlags> {
+  if (schemaFlags) return Promise.resolve(schemaFlags);
+  if (!schemaPromise) {
+    schemaPromise = runSchemaCheck().finally(() => {
+      schemaPromise = null;
+    });
+  }
+  return schemaPromise;
+}
+
+async function runSchemaCheck(): Promise<SchemaFlags> {
   try {
     await pool.query(`
       alter table public.postcards add column if not exists pickup_location text;
@@ -84,6 +95,8 @@ export async function ensurePostcardHiddenColumn() {
 // 签收 +1 / 取消签收 -1 变化；删除记录不减（保护收件人隐私）。
 export async function ensureSiteStats() {
   if (siteStatsReady) return true;
+  // 优先走合并检查（一次往返，且与并发的 ensureSchema 共享）；失败再逐条兜底。
+  if ((await ensureSchema()).metadata) return true;
   try {
     await pool.query(`
       create table if not exists public.site_stats (
