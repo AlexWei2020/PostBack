@@ -4,10 +4,11 @@ import { memo, useState } from "react";
 import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
 
-const STATUS_STYLE: Record<Postcard["status"], string> = {
-  available: "bg-primary text-primary-foreground",
-  claimed: "bg-amber-100 text-amber-700",
-  received: "bg-emerald-100 text-emerald-700",
+// 状态标签用 M3 配色角色：待认领 primary、已认领 tertiary、已收到 success 容器色。
+export const STATUS_STYLE: Record<Postcard["status"], string> = {
+  available: "bg-primary-container text-on-primary-container",
+  claimed: "bg-tertiary-container text-on-tertiary-container",
+  received: "bg-success-container text-on-success-container",
 };
 
 function PostcardCard({
@@ -44,14 +45,13 @@ function PostcardCard({
   return (
     <div
       onClick={() => onOpen?.(postcard.id)}
-      className={`flex flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm transition hover:shadow-md ${
-        onOpen ? "cursor-pointer" : ""
+      className={`card-outlined flex flex-col overflow-hidden ${
+        onOpen ? "state-layer cursor-pointer" : ""
       }`}
     >
-      <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted">
-        {/* Shimmer placeholder until the image paints — avoids a hard pop-in. */}
+      <div className="relative aspect-[3/2] w-full overflow-hidden bg-surface-container-highest">
         {!imgLoaded && (
-          <span className="absolute inset-0 animate-pulse bg-gradient-to-br from-muted to-secondary" />
+          <span className="absolute inset-0 animate-pulse bg-surface-container-high" />
         )}
         {/* Blob images are on an allowed remote host; unoptimized keeps it simple */}
         <Image
@@ -63,50 +63,52 @@ function PostcardCard({
           quality={55}
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
           onLoad={() => setImgLoaded(true)}
-          className={`object-cover transition-opacity duration-500 ${
+          className={`object-cover transition-opacity duration-300 ease-standard ${
             imgLoaded ? "opacity-100" : "opacity-0"
           }`}
         />
-        <span
-          className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[postcard.status]}`}
-        >
-          {STATUS_LABEL[postcard.status]}
-        </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div>
-          <p className="text-xs text-muted-foreground">收件人</p>
-          <p className="font-semibold">{postcard.recipient_name}</p>
+      <div className="flex flex-1 flex-col gap-1 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-label-medium text-on-surface-variant">收件人</p>
+            <p className="truncate text-title-medium text-on-surface">{postcard.recipient_name}</p>
+          </div>
+          <span
+            className={`inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-label-medium ${STATUS_STYLE[postcard.status]}`}
+          >
+            {STATUS_LABEL[postcard.status]}
+          </span>
         </div>
         {postcard.note && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{postcard.note}</p>
+          <p className="line-clamp-2 text-body-medium text-on-surface-variant">{postcard.note}</p>
         )}
         {postcard.pickup_location && (
-          <p className="text-xs text-muted-foreground">取件地点：{postcard.pickup_location}</p>
+          <p className="text-body-small text-on-surface-variant">取件地点：{postcard.pickup_location}</p>
         )}
         {postcard.hidden_by_claimer && (
-          <p className="text-xs text-muted-foreground">已隐藏 · 仅自己可见</p>
+          <p className="text-body-small text-on-surface-variant">已隐藏 · 仅自己可见</p>
         )}
 
-        <div className="mt-auto pt-2">
+        <div className="mt-auto pt-3">
           {postcard.status === "available" && onClaim && (
             <button
               onClick={stop(onClaim)}
               disabled={busy}
-              className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+              className="btn-filled w-full"
             >
               {busy ? "处理中…" : "认领这张"}
             </button>
           )}
 
           {postcard.status === "claimed" && isClaimer && (onReceive || onCancelClaim) && (
-            <div className="grid grid-cols-1 gap-2">
+            <div className="flex flex-col gap-2">
               {onReceive && (
                 <button
                   onClick={stop(onReceive)}
                   disabled={busy}
-                  className="w-full rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                  className="btn-filled w-full"
                 >
                   {busy ? "处理中…" : "确认已收到"}
                 </button>
@@ -115,7 +117,7 @@ function PostcardCard({
                 <button
                   onClick={stop(onCancelClaim)}
                   disabled={busy}
-                  className="w-full rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                  className="btn-outlined w-full"
                 >
                   取消认领
                 </button>
@@ -124,17 +126,17 @@ function PostcardCard({
           )}
 
           {postcard.status === "claimed" && !isClaimer && (
-            <p className="text-center text-xs text-muted-foreground">
+            <p className="text-center text-body-small text-on-surface-variant">
               已被 {postcard.claimer_nickname || "他人"} 认领
             </p>
           )}
 
           {postcard.status === "received" && isClaimer && onCancelReceive && (
-            <div className="grid grid-cols-1 gap-2">
+            <div className="flex flex-col gap-2">
               <button
                 onClick={stop(onCancelReceive)}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                className="btn-outlined w-full"
               >
                 取消签收
               </button>
@@ -142,7 +144,7 @@ function PostcardCard({
                 <button
                   onClick={stop(onCancelClaim)}
                   disabled={busy}
-                  className="w-full rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                  className="btn-text w-full !text-error"
                 >
                   取消认领
                 </button>
@@ -151,7 +153,7 @@ function PostcardCard({
           )}
 
           {postcard.status === "received" && (!isClaimer || !onCancelReceive) && (
-            <p className="text-center text-xs text-muted-foreground">已完成</p>
+            <p className="text-center text-body-small text-on-surface-variant">已完成</p>
           )}
         </div>
       </div>

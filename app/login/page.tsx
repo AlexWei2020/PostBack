@@ -8,24 +8,23 @@ export default async function LoginPage() {
   const totalReceived = await getTotalReceived();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6">
-      <Link
-        href="/about"
-        className="fixed right-4 top-4 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-secondary hover:text-foreground"
-      >
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <Link href="/about" className="btn-text fixed right-4 top-3">
         关于
       </Link>
-      <div className="text-center">
-        <div className="mb-4 text-5xl">✉️</div>
-        <h1 className="text-3xl font-bold tracking-tight">PostBack</h1>
-        <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-          ShanghaiTech民间明信片认领互助站
-        </p>
-        <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+      <div className="card-elevated flex w-full max-w-sm flex-col items-center gap-6 px-6 py-8 text-center">
+        <div className="text-5xl">✉️</div>
+        <div>
+          <h1 className="text-headline-medium text-on-surface">PostBack</h1>
+          <p className="mt-2 text-body-medium text-on-surface-variant">
+            ShanghaiTech民间明信片认领互助站
+          </p>
+        </div>
+        <p className="inline-flex h-8 items-center gap-2 rounded-sm bg-tertiary-container px-3 text-label-large text-on-tertiary-container">
           📮 已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
         </p>
+        <LoginButton />
       </div>
-      <LoginButton />
     </main>
   );
 }

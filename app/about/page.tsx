@@ -12,8 +12,10 @@ export default async function AboutPage() {
   return (
     <>
       <Nav />
-      <main className="container max-w-3xl py-8">
+      <main className="app-main">
+        <div className="container max-w-3xl">
         <article className="space-y-5">{renderMarkdown(markdown)}</article>
+        </div>
       </main>
     </>
   );

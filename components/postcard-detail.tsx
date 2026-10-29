@@ -3,13 +3,10 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import { STATUS_LABEL, type Postcard, type PostcardUpdateInput } from "@/lib/types";
+import Icon from "@/components/icon";
+import { STATUS_STYLE } from "@/components/postcard-card";
 import { COMMON_PICKUP_LOCATIONS } from "@/lib/pickup-locations";
 
-const STATUS_STYLE: Record<Postcard["status"], string> = {
-  available: "bg-primary text-primary-foreground",
-  claimed: "bg-amber-100 text-amber-700",
-  received: "bg-emerald-100 text-emerald-700",
-};
 
 function fmtDate(v: string | null): string | null {
   if (!v) return null;
@@ -33,9 +30,9 @@ function fmtDateTime(v: string | null): string | null {
 function InfoRow({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex justify-between gap-4 py-1.5 text-sm">
-      <span className="shrink-0 text-muted-foreground">{label}</span>
-      <span className="text-right font-medium">{value}</span>
+    <div className="flex justify-between gap-4 py-3 text-body-medium">
+      <span className="shrink-0 text-on-surface-variant">{label}</span>
+      <span className="text-right text-on-surface">{value}</span>
     </div>
   );
 }
@@ -139,16 +136,19 @@ export default function PostcardDetail({
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-40 flex items-center justify-center bg-scrim/[0.32] p-4"
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-card shadow-xl"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`寄给 ${postcard.recipient_name} 的明信片`}
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface-container-high shadow-elevation-3"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 图片：点击放大 */}
         <div
-          className="relative aspect-[3/2] w-full cursor-zoom-in bg-muted"
+          className="relative aspect-[3/2] w-full cursor-zoom-in overflow-hidden bg-surface-container-highest"
           onClick={() => setZoomed(true)}
         >
           <Image
@@ -159,57 +159,47 @@ export default function PostcardDetail({
             sizes="(max-width: 640px) 100vw, 512px"
             className="object-cover"
           />
-          <span
-            className={`absolute left-3 top-3 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[postcard.status]}`}
-          >
-            {STATUS_LABEL[postcard.status]}
-          </span>
-          <span className="absolute bottom-3 right-3 rounded-full bg-black/50 px-2 py-1 text-xs text-white">
+          <span className="absolute bottom-3 right-3 inline-flex h-8 items-center gap-1 rounded-sm bg-inverse-surface/80 px-3 text-label-large text-inverse-on-surface">
+            <Icon name="zoom_in" size={18} />
             点击放大
           </span>
         </div>
 
-        <div className="p-5">
+        <div className="p-6 [--field-bg:var(--md-surface-container-high)]">
           {editing ? (
             <form id="postcard-edit-form" onSubmit={saveEdit} className="flex flex-col gap-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  收件人姓名 <span className="text-primary">*</span>
-                </label>
+              <label className="field">
                 <input
                   value={form.recipientName}
                   onChange={setField("recipientName")}
-                  className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+                  className="field-input"
                   maxLength={64}
+                  placeholder=" "
                 />
-              </div>
+                <span className="field-label">收件人姓名 *</span>
+              </label>
 
-              <div>
-                <label className="mb-1.5 block text-sm font-medium">
-                  备注 <span className="text-muted-foreground">（可选）</span>
-                </label>
+              <label className="field">
                 <textarea
                   value={form.note || ""}
                   onChange={setField("note")}
                   rows={3}
-                  className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+                  className="field-input resize-none"
                   maxLength={500}
+                  placeholder=" "
                 />
-              </div>
+                <span className="field-label">备注（可选）</span>
+              </label>
 
               <div>
-                <label className="mb-2 block text-sm font-medium">
-                  取件地点 <span className="text-muted-foreground">（可选）</span>
-                </label>
+                <p className="mb-2 text-body-small text-on-surface-variant">
+                  取件地点（可选）
+                </p>
                 <div className="flex flex-wrap gap-2">
                   {COMMON_PICKUP_LOCATIONS.map((location) => (
                     <label
                       key={location}
-                      className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition ${
-                        form.pickupLocation === location
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-background text-muted-foreground hover:bg-muted"
-                      }`}
+                      className={`chip ${form.pickupLocation === location ? "chip-selected" : ""}`}
                     >
                       <input
                         type="radio"
@@ -219,68 +209,79 @@ export default function PostcardDetail({
                         onChange={setField("pickupLocation")}
                         className="sr-only"
                       />
+                      {form.pickupLocation === location && <Icon name="check" size={18} />}
                       {location}
                     </label>
                   ))}
                 </div>
-                <input
-                  value={
+                <label className="field mt-3">
+                  <input
+                    value={
                     COMMON_PICKUP_LOCATIONS.includes(form.pickupLocation || "")
-                      ? ""
-                      : form.pickupLocation || ""
-                  }
-                  onChange={setField("pickupLocation")}
-                  placeholder="添加新地点"
-                  className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
-                  maxLength={80}
-                />
+                    ? ""
+                    : form.pickupLocation || ""
+                    }
+                    onChange={setField("pickupLocation")}
+                    maxLength={80}
+                    placeholder=" "
+                    className="field-input"
+                  />
+                  <span className="field-label">添加新地点</span>
+                </label>
               </div>
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    寄出时间 <span className="text-muted-foreground">（可选）</span>
-                  </label>
+                <label className="field">
                   <input
                     type="date"
                     value={form.sentAt || ""}
                     onChange={setField("sentAt")}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+                    className="field-input"
+                    placeholder=" "
                   />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">
-                    到达时间 <span className="text-muted-foreground">（可选）</span>
-                  </label>
+                  <span className="field-label">寄出时间（可选）</span>
+                </label>
+                <label className="field">
                   <input
                     type="date"
                     value={form.arrivedAt || ""}
                     onChange={setField("arrivedAt")}
-                    className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+                    className="field-input"
+                    placeholder=" "
                   />
-                </div>
+                  <span className="field-label">到达时间（可选）</span>
+                </label>
               </div>
             </form>
           ) : (
             <>
-              <div className="mb-2">
-                <p className="text-xs text-muted-foreground">收件人</p>
-                <p className="text-lg font-semibold">{postcard.recipient_name}</p>
+              <div className="mb-4 flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-label-medium text-on-surface-variant">收件人</p>
+                  <h2 className="break-words text-headline-small text-on-surface">
+                    {postcard.recipient_name}
+                  </h2>
+                </div>
+                <span
+                  className={`mt-1 inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-label-medium ${STATUS_STYLE[postcard.status]}`}
+                >
+                  {STATUS_LABEL[postcard.status]}
+                </span>
               </div>
 
               {postcard.hidden_by_claimer && (
-                <p className="mb-3 inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
+                <p className="mb-3 inline-flex h-8 items-center gap-2 rounded-sm bg-surface-container-highest px-3 text-label-large text-on-surface-variant">
                   已隐藏 · 仅自己可见（不在广场展示）
                 </p>
               )}
 
               {postcard.note && (
-                <p className="mb-3 whitespace-pre-wrap rounded-lg bg-muted px-3 py-2 text-sm">
+                <p className="mb-3 whitespace-pre-wrap rounded-sm bg-surface-container-highest px-4 py-3 text-body-medium text-on-surface">
                   {postcard.note}
                 </p>
               )}
 
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-outline-variant">
                 <InfoRow label="寄出时间" value={fmtDate(postcard.sent_at)} />
                 <InfoRow label="到达时间（落地戳）" value={fmtDate(postcard.arrived_at)} />
                 <InfoRow label="取件地点" value={postcard.pickup_location || null} />
@@ -294,12 +295,12 @@ export default function PostcardDetail({
           )}
 
           {/* 操作区 */}
-          <div className="mt-5 flex flex-col gap-2">
+          <div className="mt-6 flex flex-col gap-2">
             {!editing && postcard.status === "available" && onClaim && (
               <button
                 onClick={() => onClaim(postcard.id)}
                 disabled={busy}
-                className="w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                className="btn-filled w-full"
               >
                 {busy ? "处理中…" : "认领这张"}
               </button>
@@ -309,7 +310,7 @@ export default function PostcardDetail({
               <button
                 onClick={() => onReceive(postcard.id)}
                 disabled={busy}
-                className="w-full rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                className="btn-filled w-full"
               >
                 {busy ? "处理中…" : "确认已收到"}
               </button>
@@ -319,7 +320,7 @@ export default function PostcardDetail({
               <button
                 onClick={() => onCancelClaim(postcard.id)}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                className="btn-outlined w-full"
               >
                 {busy ? "处理中…" : "取消认领"}
               </button>
@@ -329,7 +330,7 @@ export default function PostcardDetail({
               <button
                 onClick={() => onCancelReceive(postcard.id)}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                className="btn-outlined w-full"
               >
                 {busy ? "处理中…" : "取消签收"}
               </button>
@@ -339,7 +340,7 @@ export default function PostcardDetail({
               <button
                 onClick={() => onCancelClaim(postcard.id)}
                 disabled={busy}
-                className="w-full rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="btn-text w-full !text-error"
               >
                 {busy ? "处理中…" : "取消认领"}
               </button>
@@ -351,7 +352,7 @@ export default function PostcardDetail({
                     <button
                       onClick={() => onUnhide(postcard.id)}
                       disabled={busy}
-                      className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                      className="btn-outlined w-full"
                     >
                       {busy ? "处理中…" : "取消隐藏（重新在广场展示）"}
                     </button>
@@ -360,7 +361,7 @@ export default function PostcardDetail({
                     <button
                       onClick={() => onHide(postcard.id)}
                       disabled={busy}
-                      className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-muted disabled:opacity-50"
+                      className="btn-outlined w-full"
                     >
                       {busy ? "处理中…" : "隐藏（仅自己可见）"}
                     </button>
@@ -374,7 +375,7 @@ export default function PostcardDetail({
                   setEditing(true);
                 }}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-4 py-2.5 text-sm font-medium transition hover:bg-muted disabled:opacity-50"
+                className="btn-outlined w-full"
               >
                 编辑这张明信片
               </button>
@@ -386,7 +387,7 @@ export default function PostcardDetail({
                   type="submit"
                   form="postcard-edit-form"
                   disabled={busy}
-                  className="flex-1 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+                  className="btn-filled flex-1"
                 >
                   {busy ? "保存中…" : "保存修改"}
                 </button>
@@ -396,7 +397,7 @@ export default function PostcardDetail({
                     setEditing(false);
                   }}
                   disabled={busy}
-                  className="flex-1 rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground transition hover:opacity-80 disabled:opacity-50"
+                  className="btn-outlined flex-1"
                 >
                   取消
                 </button>
@@ -407,27 +408,27 @@ export default function PostcardDetail({
               <button
                 onClick={() => setConfirmDelete(true)}
                 disabled={busy}
-                className="w-full rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 disabled:opacity-50"
+                className="btn-text w-full !text-error"
               >
                 删除这条记录
               </button>
             )}
 
             {canDelete && !editing && confirmDelete && (
-              <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
-                <p className="text-sm text-red-700">删除后无法恢复，确认删除？</p>
+              <div className="flex flex-col gap-3 rounded-md bg-error-container p-4">
+                <p className="text-body-medium text-on-error-container">删除后无法恢复，确认删除？</p>
                 <div className="flex gap-2">
                   <button
                     onClick={() => onDelete?.(postcard.id)}
                     disabled={busy}
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                    className="btn-error flex-1"
                   >
                     {busy ? "删除中…" : "确认删除"}
                   </button>
                   <button
                     onClick={() => setConfirmDelete(false)}
                     disabled={busy}
-                    className="flex-1 rounded-lg bg-secondary px-4 py-2 text-sm font-medium text-secondary-foreground transition hover:opacity-80 disabled:opacity-50"
+                    className="btn-text flex-1"
                   >
                     取消
                   </button>
@@ -437,7 +438,7 @@ export default function PostcardDetail({
 
             <button
               onClick={onClose}
-              className="w-full rounded-lg bg-secondary px-4 py-2.5 text-sm font-medium text-secondary-foreground transition hover:opacity-80"
+              className="btn-text w-full"
             >
               关闭
             </button>
@@ -448,7 +449,7 @@ export default function PostcardDetail({
       {/* 全屏放大预览 */}
       {zoomed && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/90 p-4"
           onClick={(e) => {
             e.stopPropagation();
             setZoomed(false);

@@ -41,10 +41,11 @@ export default async function AccountPage() {
   return (
     <>
       <Nav />
-      <main className="container py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">我的账户</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <main className="app-main">
+        <div className="container">
+        <div className="mb-6 pt-2">
+          <h1 className="text-headline-medium text-on-surface">我的账户</h1>
+          <p className="mt-2 text-body-medium text-on-surface-variant">
             维护你的常用收件名，系统会汇总可能属于你的待认领明信片。
           </p>
         </div>
@@ -54,6 +55,7 @@ export default async function AccountPage() {
           initialMatches={matches.rows as Postcard[]}
           currentUserId={user.id}
         />
+        </div>
       </main>
     </>
   );

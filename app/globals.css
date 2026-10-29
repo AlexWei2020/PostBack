@@ -2,33 +2,193 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Material Design 3 配色角色（亮色方案）。
+ * 由 @material/material-color-utilities 的 SchemeTonalSpot 生成，
+ * 源色 #E1542C（原品牌色）；success 为自定义色 #2E7D32（不混合）。
+ * 值为 RGB 三元组，便于 Tailwind 使用 <alpha-value>。
+ */
 @layer base {
   :root {
     color-scheme: light;
-    --background: 40 33% 98%;
-    --foreground: 24 20% 12%;
-    --card: 0 0% 100%;
-    --card-foreground: 24 20% 12%;
-    --primary: 12 76% 52%;
-    --primary-foreground: 40 33% 98%;
-    --secondary: 30 25% 94%;
-    --secondary-foreground: 24 20% 20%;
-    --muted: 30 20% 95%;
-    --muted-foreground: 24 8% 46%;
-    --border: 30 15% 88%;
-    --input: 30 15% 88%;
-    --ring: 12 76% 52%;
-    --radius: 0.75rem;
+    --md-primary: 143 75 57;
+    --md-on-primary: 255 255 255;
+    --md-primary-container: 255 219 209;
+    --md-on-primary-container: 114 53 35;
+    --md-secondary: 119 87 78;
+    --md-on-secondary: 255 255 255;
+    --md-secondary-container: 255 219 209;
+    --md-on-secondary-container: 93 64 56;
+    --md-tertiary: 108 93 47;
+    --md-on-tertiary: 255 255 255;
+    --md-tertiary-container: 246 225 166;
+    --md-on-tertiary-container: 83 70 25;
+    --md-error: 186 26 26;
+    --md-on-error: 255 255 255;
+    --md-error-container: 255 218 214;
+    --md-on-error-container: 147 0 10;
+    --md-success: 27 109 36;
+    --md-on-success: 255 255 255;
+    --md-success-container: 163 246 156;
+    --md-on-success-container: 0 34 4;
+    --md-surface: 255 248 246;
+    --md-on-surface: 35 25 23;
+    --md-on-surface-variant: 83 67 63;
+    --md-surface-container-lowest: 255 255 255;
+    --md-surface-container-low: 255 241 237;
+    --md-surface-container: 252 234 229;
+    --md-surface-container-high: 247 228 224;
+    --md-surface-container-highest: 241 223 218;
+    --md-outline: 133 115 110;
+    --md-outline-variant: 216 194 188;
+    --md-inverse-surface: 57 46 43;
+    --md-inverse-on-surface: 255 237 232;
+    --md-scrim: 0 0 0;
+    --md-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   }
 }
 
 @layer base {
-  * {
-    border-color: hsl(var(--border));
-  }
   body {
-    background-color: hsl(var(--background));
-    color: hsl(var(--foreground));
+    background-color: rgb(var(--md-surface));
+    color: rgb(var(--md-on-surface));
+    font-family: theme("fontFamily.sans");
     -webkit-font-smoothing: antialiased;
+  }
+  * {
+    border-color: rgb(var(--md-outline-variant));
+  }
+  :focus-visible {
+    outline: 3px solid rgb(var(--md-secondary));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* M3 状态层：hover 8%、focus/pressed 10%，颜色取内容色 */
+  .state-layer {
+    position: relative;
+    isolation: isolate;
+  }
+  .state-layer::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background-color: currentColor;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms var(--md-easing-standard);
+  }
+  .state-layer:hover::before {
+    opacity: 0.08;
+  }
+  .state-layer:focus-visible::before,
+  .state-layer:active::before {
+    opacity: 0.1;
+  }
+  .state-layer:disabled::before {
+    opacity: 0;
+  }
+}
+
+@layer components {
+  /* 按钮：高 40dp、全圆角、label-large（14/20，medium，0.1px） */
+  .btn {
+    @apply state-layer inline-flex h-10 select-none items-center justify-center gap-2 rounded-full px-6 text-sm font-medium tracking-[0.1px] transition-shadow;
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed;
+  }
+  .btn-filled {
+    @apply btn bg-primary text-on-primary hover:shadow-elevation-1;
+  }
+  .btn-tonal {
+    @apply btn bg-secondary-container text-on-secondary-container hover:shadow-elevation-1;
+  }
+  .btn-outlined {
+    @apply btn border border-outline text-primary;
+  }
+  .btn-text {
+    @apply btn px-3 text-primary;
+  }
+  .btn-error {
+    @apply btn bg-error text-on-error hover:shadow-elevation-1;
+  }
+  .btn-filled:disabled,
+  .btn-tonal:disabled,
+  .btn-error:disabled {
+    @apply bg-on-surface/[0.12] text-on-surface/[0.38] shadow-none;
+  }
+  .btn-outlined:disabled {
+    @apply border-on-surface/[0.12] text-on-surface/[0.38];
+  }
+  .btn-text:disabled {
+    @apply text-on-surface/[0.38];
+  }
+
+  /* 筛选纸片：高 32dp、圆角 8dp */
+  .chip {
+    @apply state-layer inline-flex h-8 cursor-pointer select-none items-center gap-2 rounded-sm border border-outline px-4 text-sm font-medium tracking-[0.1px] text-on-surface-variant;
+  }
+  .chip-selected {
+    @apply border-transparent bg-secondary-container pl-2 text-on-secondary-container;
+  }
+  .chip:has(:focus-visible) {
+    outline: 3px solid rgb(var(--md-secondary));
+    outline-offset: 2px;
+  }
+
+  /* 描边文本框：圆角 4dp，浮动标签嵌在描边缺口中 */
+  .field {
+    @apply relative block;
+  }
+  .field-input {
+    @apply block min-h-14 w-full rounded-xs border border-outline bg-transparent px-4 py-4 text-base tracking-[0.5px] text-on-surface outline-none transition-colors placeholder:text-transparent focus:placeholder:text-on-surface-variant hover:border-on-surface focus:border-2 focus:border-primary focus:px-[15px] focus:py-[15px];
+  }
+  .field-label {
+    @apply pointer-events-none absolute left-3 top-0 -translate-y-1/2 bg-[rgb(var(--field-bg,var(--md-surface)))] px-1 text-xs tracking-[0.4px] text-on-surface-variant transition-all;
+  }
+  .field-input:placeholder-shown:not(:focus) + .field-label {
+    @apply top-7 text-base tracking-[0.5px];
+  }
+  .field-input:focus + .field-label {
+    @apply text-primary;
+  }
+  .field-support {
+    @apply mt-1 px-4 text-xs tracking-[0.4px] text-on-surface-variant;
+  }
+
+  /* 卡片：outlined，圆角 12dp */
+  .card-outlined {
+    @apply rounded-md border border-outline-variant bg-surface;
+  }
+  .card-elevated {
+    @apply rounded-md bg-surface-container-low shadow-elevation-1;
+  }
+}
+
+@keyframes md-linear-indeterminate {
+  0% { transform: translateX(-100%) scaleX(0.3); }
+  50% { transform: translateX(0) scaleX(0.6); }
+  100% { transform: translateX(100%) scaleX(0.3); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  /* 内容区：为左侧导航轨（≥640px）留出 80dp */
+  .app-main {
+    @apply pb-6 pt-2 sm:pl-20;
   }
 }

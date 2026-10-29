@@ -59,13 +59,14 @@ export default async function HomePage() {
   return (
     <>
       <Nav />
-      <main className="container py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">明信片广场</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+      <main className="app-main">
+        <div className="container">
+        <div className="mb-6 pt-2">
+          <h1 className="text-headline-medium text-on-surface">明信片广场</h1>
+          <p className="mt-2 text-body-medium text-on-surface-variant">
             ↗️网页右上角点击昵称，进入个人页面，配置常用收件名后可自动匹配 取到明信片后记得确认签收~
           </p>
-          <p className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary">
+          <p className="mt-4 inline-flex h-8 items-center gap-2 rounded-sm bg-tertiary-container px-3 text-label-large text-on-tertiary-container">
             📮 已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
           </p>
         </div>
@@ -75,6 +76,7 @@ export default async function HomePage() {
           initialPageSize={DEFAULT_PAGE_SIZE}
           currentUserId={user.id}
         />
+        </div>
       </main>
     </>
   );

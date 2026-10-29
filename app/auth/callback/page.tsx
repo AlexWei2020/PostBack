@@ -239,12 +239,12 @@ export default function CasdoorCallback() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
       {!failed && (
-        <span className="h-6 w-6 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+        <span className="h-12 w-12 animate-spin rounded-full border-4 border-secondary-container border-t-primary" />
       )}
       <p
         role="status"
         aria-live="polite"
-        className="max-w-xl break-words text-center text-sm text-muted-foreground"
+        className="max-w-xl break-words text-center text-body-medium text-on-surface-variant"
       >
         {message}
       </p>

@@ -34,8 +34,9 @@ export default async function MinePage() {
   return (
     <>
       <Nav />
-      <main className="container py-8">
-        <h1 className="mb-6 text-2xl font-bold tracking-tight">我的明信片</h1>
+      <main className="app-main">
+        <div className="container">
+        <h1 className="mb-6 pt-2 text-headline-medium text-on-surface">我的明信片</h1>
         <MineClient
           initialClaimed={claimedPage.rows as Postcard[]}
           initialScopeCounts={{
@@ -45,6 +46,7 @@ export default async function MinePage() {
           initialPageSize={DEFAULT_PAGE_SIZE}
           currentUserId={user.id}
         />
+        </div>
       </main>
     </>
   );

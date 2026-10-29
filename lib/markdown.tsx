@@ -16,7 +16,7 @@ function inlineMarkdown(text: string): React.ReactNode[] {
       nodes.push(<strong key={match.index}>{raw.slice(2, -2)}</strong>);
     } else if (raw.startsWith("`")) {
       nodes.push(
-        <code key={match.index} className="rounded bg-muted px-1 py-0.5 text-[0.9em]">
+        <code key={match.index} className="rounded-xs bg-surface-container-highest px-1 py-0.5 text-[0.9em]">
           {raw.slice(1, -1)}
         </code>
       );
@@ -27,7 +27,7 @@ function inlineMarkdown(text: string): React.ReactNode[] {
           key={match.index}
           src={match[3]}
           alt={match[2] || ""}
-          className="my-3 max-h-[420px] max-w-full rounded-lg border border-border object-contain"
+          className="my-3 max-h-[420px] max-w-full rounded-md object-contain"
         />
       );
     } else {
@@ -39,7 +39,7 @@ function inlineMarkdown(text: string): React.ReactNode[] {
           href={href}
           target={isExternal ? "_blank" : undefined}
           rel={isExternal ? "noreferrer" : undefined}
-          className="font-medium text-primary underline underline-offset-2"
+          className="text-primary underline"
         >
           {match[4]}
         </a>
@@ -64,7 +64,7 @@ export function renderMarkdown(markdown: string) {
     if (paragraph.length === 0) return;
     const text = paragraph.join(" ");
     blocks.push(
-      <p key={`p-${blocks.length}`} className="leading-7 text-foreground/90">
+      <p key={`p-${blocks.length}`} className="text-body-large text-on-surface">
         {inlineMarkdown(text)}
       </p>
     );
@@ -74,9 +74,9 @@ export function renderMarkdown(markdown: string) {
   const flushList = () => {
     if (list.length === 0) return;
     blocks.push(
-      <ul key={`ul-${blocks.length}`} className="list-disc space-y-2 pl-5 text-foreground/90">
+      <ul key={`ul-${blocks.length}`} className="list-disc space-y-2 pl-5 text-body-large text-on-surface">
         {list.map((item, index) => (
-          <li key={index} className="leading-7">
+          <li key={index}>
             {inlineMarkdown(item)}
           </li>
         ))}
@@ -90,10 +90,10 @@ export function renderMarkdown(markdown: string) {
     blocks.push(
       <blockquote
         key={`quote-${blocks.length}`}
-        className="border-l-4 border-primary/40 bg-muted/70 px-4 py-3 text-sm text-muted-foreground"
+        className="rounded-md bg-surface-container-high px-4 py-3 text-body-medium text-on-surface-variant"
       >
         {quote.map((item, index) => (
-          <p key={index} className="leading-7">
+          <p key={index}>
             {inlineMarkdown(item)}
           </p>
         ))}
@@ -117,7 +117,7 @@ export function renderMarkdown(markdown: string) {
       flushList();
       flushQuote();
       blocks.push(
-        <h3 key={`h3-${blocks.length}`} className="pt-3 text-lg font-semibold tracking-tight">
+        <h3 key={`h3-${blocks.length}`} className="pt-3 text-title-medium text-on-surface">
           {inlineMarkdown(trimmed.slice(4))}
         </h3>
       );
@@ -129,7 +129,7 @@ export function renderMarkdown(markdown: string) {
       flushList();
       flushQuote();
       blocks.push(
-        <h2 key={`h2-${blocks.length}`} className="pt-5 text-xl font-semibold tracking-tight">
+        <h2 key={`h2-${blocks.length}`} className="pt-5 text-title-large text-on-surface">
           {inlineMarkdown(trimmed.slice(3))}
         </h2>
       );
@@ -141,7 +141,7 @@ export function renderMarkdown(markdown: string) {
       flushList();
       flushQuote();
       blocks.push(
-        <h1 key={`h1-${blocks.length}`} className="text-2xl font-bold tracking-tight">
+        <h1 key={`h1-${blocks.length}`} className="pt-2 text-headline-medium text-on-surface">
           {inlineMarkdown(trimmed.slice(2))}
         </h1>
       );

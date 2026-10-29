@@ -3,16 +3,19 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useTransition, type MouseEvent } from "react";
+import Icon, { type IconName } from "./icon";
+import LinearProgress from "./linear-progress";
 import LogoutButton from "./logout-button";
 
-const NAV_ITEMS = [
-  { href: "/", label: "广场" },
-  { href: "/upload", label: "上传" },
-  { href: "/mine", label: "我的" },
-  { href: "/help", label: "帮助" },
-  { href: "/about", label: "关于" },
+const NAV_ITEMS: { href: string; label: string; icon: IconName; activeIcon: IconName }[] = [
+  { href: "/", label: "广场", icon: "home", activeIcon: "home_fill" },
+  { href: "/upload", label: "上传", icon: "upload", activeIcon: "upload" },
+  { href: "/mine", label: "我的", icon: "inbox", activeIcon: "inbox_fill" },
+  { href: "/help", label: "帮助", icon: "help", activeIcon: "help_fill" },
+  { href: "/about", label: "关于", icon: "info", activeIcon: "info_fill" },
 ];
 
+// M3 布局：顶部应用栏 + 导航（≥640px 为左侧导航轨，窄屏为底部导航栏）。
 export default function NavBar({
   loggedIn,
   nickname,
@@ -24,71 +27,85 @@ export default function NavBar({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  // 顶部导航切换页面时，和"全部/待认领/…"筛选一样：立即反馈 + 顶部加载指示，
-  // 避免用户在慢网络下点了没反应、又重复点击。
+  // 切换页面时立即反馈 + 顶部进度条，避免慢网络下重复点击。
   const navigate = (href: string) => (e: MouseEvent<HTMLAnchorElement>) => {
-    if (href === pathname) {
-      e.preventDefault();
-      return;
-    }
     e.preventDefault();
+    if (href === pathname) return;
     startTransition(() => {
       router.push(href);
     });
   };
 
-  const linkClass = (href: string) =>
-    `shrink-0 whitespace-nowrap rounded-md px-2.5 py-2 transition sm:px-3 ${
-      pathname === href
-        ? "bg-secondary font-medium text-foreground"
-        : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-    }`;
+  const destination = (item: (typeof NAV_ITEMS)[number], variant: "rail" | "bar") => {
+    const active = pathname === item.href;
+    return (
+      <Link
+        key={item.href}
+        href={item.href}
+        onClick={navigate(item.href)}
+        aria-current={active ? "page" : undefined}
+        className={`group flex flex-col items-center gap-1 text-label-medium ${
+          variant === "rail" ? "w-20 py-1" : "flex-1 pb-4 pt-3"
+        } ${active ? "font-semibold text-on-surface" : "text-on-surface-variant"}`}
+      >
+        <span
+          className={`state-layer flex h-8 items-center justify-center rounded-full ${
+            variant === "rail" ? "w-14" : "w-16"
+          } ${active ? "bg-secondary-container text-on-secondary-container" : ""}`}
+        >
+          <Icon name={active ? item.activeIcon : item.icon} />
+        </span>
+        {item.label}
+      </Link>
+    );
+  };
 
   return (
-    <nav
-      className={`flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm transition-opacity ${
-        isPending ? "pointer-events-none opacity-60" : ""
-      }`}
-    >
-      {NAV_ITEMS.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          onClick={navigate(item.href)}
-          className={linkClass(item.href)}
-        >
-          {item.label}
-        </Link>
-      ))}
+    <>
+      {isPending && <LinearProgress />}
 
-      {loggedIn && (
-        <div className="ml-auto flex shrink-0 items-center gap-2 border-l border-border pl-2 sm:pl-3">
-          <Link
-            href="/account"
-            onClick={navigate("/account")}
-            className={`block max-w-16 truncate rounded-md px-2 py-1.5 sm:max-w-28 ${
-              pathname === "/account"
-                ? "bg-secondary font-medium text-foreground"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-            }`}
-          >
-            {nickname || "已登录"}
+      {/* 顶部应用栏（small）：高 64dp */}
+      <header className="sticky top-0 z-20 bg-surface sm:pl-20">
+        <div className="flex h-16 items-center gap-1 px-4">
+          <Link href="/" onClick={navigate("/")} className="text-title-large text-on-surface">
+            PostBack
           </Link>
-          <LogoutButton />
+          {loggedIn && (
+            <div className="ml-auto flex items-center gap-1">
+              <Link
+                href="/account"
+                onClick={navigate("/account")}
+                aria-current={pathname === "/account" ? "page" : undefined}
+                className={`state-layer flex h-10 max-w-40 items-center gap-2 rounded-full pl-2 pr-4 text-label-large ${
+                  pathname === "/account"
+                    ? "bg-secondary-container text-on-secondary-container"
+                    : "text-on-surface-variant"
+                }`}
+              >
+                <Icon name="account_circle" />
+                <span className="truncate">{nickname || "已登录"}</span>
+              </Link>
+              <LogoutButton />
+            </div>
+          )}
         </div>
-      )}
+      </header>
 
-      {/* 醒目的加载指示：固定在视窗顶部居中，跟筛选切换保持一致的体验 */}
-      {isPending && (
-        <div
-          role="status"
-          aria-live="polite"
-          className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background shadow-lg"
-        >
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-background/40 border-t-background" />
-          加载中…
-        </div>
-      )}
-    </nav>
+      {/* 导航轨：宽 80dp */}
+      <nav
+        aria-label="主导航"
+        className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col items-center gap-3 bg-surface pt-20 sm:flex"
+      >
+        {NAV_ITEMS.map((item) => destination(item, "rail"))}
+      </nav>
+
+      {/* 导航栏：窄屏底部，高 80dp */}
+      <nav
+        aria-label="主导航"
+        className="fixed inset-x-0 bottom-0 z-30 flex bg-surface-container sm:hidden"
+      >
+        {NAV_ITEMS.map((item) => destination(item, "bar"))}
+      </nav>
+    </>
   );
 }

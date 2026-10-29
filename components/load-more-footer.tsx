@@ -23,22 +23,18 @@ export default function LoadMoreFooter({
   return (
     <div
       ref={sentinelRef}
-      className="mt-6 flex min-h-12 items-center justify-center gap-2 text-sm text-muted-foreground"
+      className="mt-6 flex min-h-12 items-center justify-center gap-3 text-body-medium text-on-surface-variant"
     >
       {failed ? (
         <>
           <span>加载失败</span>
-          <button
-            type="button"
-            onClick={onRetry}
-            className="rounded-full border border-border px-3 py-1 text-foreground transition hover:border-foreground hover:bg-muted"
-          >
+          <button type="button" onClick={onRetry} className="btn-text">
             重试
           </button>
         </>
       ) : loadingMore || hasMore ? (
         <>
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+          <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-secondary-container border-t-primary" />
           <span>
             加载中…（已显示 {loaded}/{total} 张）
           </span>
