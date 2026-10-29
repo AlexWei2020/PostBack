@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Icon from "./icon";
 
+// M3 标准图标按钮：40dp 圆形
 export default function LogoutButton() {
   const [loading, setLoading] = useState(false);
 
@@ -15,9 +17,11 @@ export default function LogoutButton() {
     <button
       onClick={logout}
       disabled={loading}
-      className="rounded-md px-3 py-2 text-muted-foreground transition hover:bg-secondary hover:text-foreground disabled:opacity-50"
+      aria-label="退出登录"
+      title="退出登录"
+      className="state-layer grid h-10 w-10 place-items-center rounded-full text-on-surface-variant disabled:text-on-surface/[0.38]"
     >
-      {loading ? "退出中…" : "退出"}
+      <Icon name="logout" />
     </button>
   );
 }

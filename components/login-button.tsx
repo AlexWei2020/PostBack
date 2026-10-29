@@ -67,7 +67,7 @@ export default function LoginButton() {
   return (
     <button
       onClick={handleLogin}
-      className="rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition hover:opacity-90"
+      className="btn-filled w-full"
     >
       通过 GeekPie 统一身份认证登录
     </button>

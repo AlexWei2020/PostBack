@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PostcardCard from "@/components/postcard-card";
 import PostcardDetail from "@/components/postcard-detail";
 import LoadMoreFooter from "@/components/load-more-footer";
+import LinearProgress from "@/components/linear-progress";
+import Icon from "@/components/icon";
 import { useLoadMoreSentinel } from "@/lib/use-load-more";
 import type {
   Postcard,
@@ -261,7 +263,7 @@ export default function HomeClient({
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {FILTERS.map((f) => (
           <button
             key={f.key}
@@ -271,26 +273,24 @@ export default function HomeClient({
               setPendingFilter(f.key);
               reload({ nextFilter: f.key });
             }}
-            className={`rounded-full px-3.5 py-1.5 text-sm transition disabled:cursor-wait ${
-              activeFilter === f.key
-                ? "bg-foreground text-background"
-                : "bg-secondary text-secondary-foreground hover:opacity-80"
-            }`}
+            aria-pressed={activeFilter === f.key}
+            className={`chip disabled:cursor-wait ${activeFilter === f.key ? "chip-selected" : ""}`}
           >
+            {activeFilter === f.key && <Icon name="check" size={18} />}
             {f.label}（{counts[f.key]}张）
           </button>
         ))}
       </div>
 
       {error && (
-        <p className="mb-4 rounded-lg bg-destructive/10 px-4 py-2 text-sm text-red-600">
+        <p className="mb-4 rounded-md bg-error-container px-4 py-3 text-body-medium text-on-error-container">
           {error}
         </p>
       )}
 
       <div ref={gridRef} className="relative scroll-mt-20">
         {total === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+          <div className="rounded-md bg-surface-container-low py-16 text-center text-body-medium text-on-surface-variant">
             这里还没有明信片。
             <a href="/upload" className="text-primary underline">
               上传第一张
@@ -320,17 +320,8 @@ export default function HomeClient({
           </div>
         )}
 
-        {/* 醒目的加载指示：固定在视窗顶部居中，无论滚动到哪都能看见 */}
-        {loadingPage && (
-          <div
-            role="status"
-            aria-live="polite"
-            className="pointer-events-none fixed left-1/2 top-20 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full bg-foreground px-4 py-2 text-sm font-medium text-background shadow-lg"
-          >
-            <span className="h-4 w-4 animate-spin rounded-full border-2 border-background/40 border-t-background" />
-            加载中…
-          </div>
-        )}
+        {/* 切换筛选时在视窗顶部显示 M3 线性进度条 */}
+        {loadingPage && <LinearProgress />}
       </div>
 
       {detail && (

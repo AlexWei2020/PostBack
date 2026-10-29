@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
+import Icon from "@/components/icon";
+import { STATUS_STYLE } from "@/components/postcard-card";
 import { COMMON_PICKUP_LOCATIONS } from "@/lib/pickup-locations";
 
 type DuplicateCandidate = {
@@ -376,21 +378,22 @@ export default function UploadClient() {
   };
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-6">
       {done && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+        <div className="rounded-md bg-success-container px-4 py-3 text-body-medium text-on-success-container">
           上传成功，可以继续上传下一张。
         </div>
       )}
 
       <div>
-        <label className="mb-1.5 block text-sm font-medium">明信片正面照片</label>
-        <label className="flex aspect-[3/2] w-full cursor-pointer items-center justify-center overflow-hidden rounded-xl border-2 border-dashed border-border bg-muted transition hover:border-primary">
+        <p className="mb-2 text-body-small text-on-surface-variant">明信片正面照片</p>
+        <label className="state-layer flex aspect-[3/2] w-full cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-md border border-dashed border-outline bg-surface-container-low text-on-surface-variant">
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="预览" className="h-full w-full object-cover" />
           ) : (
-            <span className="px-4 text-center text-sm text-muted-foreground">
+            <span className="flex flex-col items-center gap-2 px-4 text-center text-body-medium">
+              <Icon name="upload_file" size={40} />
               点击选择图片<br />（JPG / PNG / WEBP，≤10MB）
             </span>
           )}
@@ -405,51 +408,51 @@ export default function UploadClient() {
       </div>
 
       {duplicateStatus === "checking" && (
-        <p className="rounded-lg bg-muted px-4 py-2 text-sm text-muted-foreground">
+        <p className="rounded-md bg-surface-container-high px-4 py-3 text-body-medium text-on-surface-variant">
           正在检测是否已有疑似同一张明信片…
         </p>
       )}
 
       {duplicateStatus === "unavailable" && (
-        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        <p className="rounded-md bg-tertiary-container px-4 py-3 text-body-medium text-on-tertiary-container">
           暂时无法启用重复检测，请确认数据库已加入 image_hash 字段；你仍可继续上传。
         </p>
       )}
 
       {duplicateStatus === "error" && duplicateError && (
-        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+        <p className="rounded-md bg-tertiary-container px-4 py-3 text-body-medium text-on-tertiary-container">
           {duplicateError}
         </p>
       )}
 
       {duplicateCandidates.length > 0 && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
-          <p className="mb-3 text-sm font-medium text-amber-800">
+        <div className="rounded-md bg-tertiary-container p-4 text-on-tertiary-container">
+          <p className="mb-3 text-title-small">
             检测到可能是同一张明信片的记录，请确认后再发布。
           </p>
           <div className="space-y-3">
             {duplicateCandidates.map(({ postcard, distance }) => (
               <div
                 key={postcard.id}
-                className="grid grid-cols-[96px_1fr] gap-3 rounded-md bg-background/80 p-2"
+                className="grid grid-cols-[96px_1fr] gap-3 rounded-sm bg-surface p-2 text-on-surface"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={postcard.image_url}
                   alt={`疑似重复：${postcard.recipient_name}`}
-                  className="aspect-[3/2] w-24 rounded object-cover"
+                  className="aspect-[3/2] w-24 rounded-xs object-cover"
                 />
-                <div className="min-w-0 text-sm">
+                <div className="min-w-0 text-body-medium">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium">{postcard.recipient_name}</span>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-secondary-foreground">
+                    <span className={`inline-flex h-6 items-center rounded-sm px-2 text-label-medium ${STATUS_STYLE[postcard.status]}`}>
                       {STATUS_LABEL[postcard.status]}
                     </span>
                   </div>
                   {postcard.note && (
-                    <p className="mt-1 line-clamp-2 text-muted-foreground">{postcard.note}</p>
+                    <p className="mt-1 line-clamp-2 text-on-surface-variant">{postcard.note}</p>
                   )}
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-body-small text-on-surface-variant">
                     上传于 {fmtDate(postcard.created_at) || "未知"}，相似度参考值 {64 - distance}/64
                   </p>
                 </div>
@@ -459,45 +462,38 @@ export default function UploadClient() {
         </div>
       )}
 
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">
-          收件人姓名 <span className="text-primary">*</span>
-        </label>
+      <label className="field">
         <input
           value={recipientName}
           onChange={(e) => setRecipientName(e.target.value)}
           placeholder="明信片上写的收件人姓名"
-          className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+          className="field-input"
           maxLength={64}
         />
-      </div>
+        <span className="field-label">收件人姓名 *</span>
+      </label>
 
-      <div>
-        <label className="mb-1.5 block text-sm font-medium">
-          备注 <span className="text-muted-foreground">（可选）</span>
-        </label>
+      <label className="field">
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={3}
-          className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+          className="field-input resize-none"
           maxLength={500}
+          placeholder=" "
         />
-      </div>
+        <span className="field-label">备注（可选）</span>
+      </label>
 
       <div>
-        <label className="mb-2 block text-sm font-medium">
-          取件地点 <span className="text-muted-foreground">（可选）</span>
-        </label>
+        <p className="mb-2 text-body-small text-on-surface-variant">
+          取件地点（可选）
+        </p>
         <div className="flex flex-wrap gap-2">
           {COMMON_PICKUP_LOCATIONS.map((location) => (
             <label
               key={location}
-              className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition ${
-                pickupLocation === location
-                  ? "border-primary bg-primary/10 text-primary"
-                  : "border-border bg-background text-muted-foreground hover:bg-muted"
-              }`}
+              className={`chip ${pickupLocation === location ? "chip-selected" : ""}`}
             >
               <input
                 type="radio"
@@ -507,52 +503,54 @@ export default function UploadClient() {
                 onChange={(e) => setPickupLocation(e.target.value)}
                 className="sr-only"
               />
+              {pickupLocation === location && <Icon name="check" size={18} />}
               {location}
             </label>
           ))}
         </div>
-        <input
-          value={COMMON_PICKUP_LOCATIONS.includes(pickupLocation) ? "" : pickupLocation}
-          onChange={(e) => setPickupLocation(e.target.value)}
-          placeholder="添加新地点"
-          className="mt-2 w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
-          maxLength={80}
-        />
+        <label className="field mt-3">
+          <input
+            value={COMMON_PICKUP_LOCATIONS.includes(pickupLocation) ? "" : pickupLocation}
+            onChange={(e) => setPickupLocation(e.target.value)}
+            maxLength={80}
+            placeholder=" "
+            className="field-input"
+          />
+          <span className="field-label">添加新地点</span>
+        </label>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">
-            寄出时间 <span className="text-muted-foreground">（可选）</span>
-          </label>
+        <label className="field">
           <input
             type="date"
             value={sentAt}
             onChange={(e) => setSentAt(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+            className="field-input"
+            placeholder=" "
           />
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium">
-            到达时间 <span className="text-muted-foreground">（落地戳 · 可选）</span>
-          </label>
+          <span className="field-label">寄出时间（可选）</span>
+        </label>
+        <label className="field">
           <input
             type="date"
             value={arrivedAt}
             onChange={(e) => setArrivedAt(e.target.value)}
-            className="w-full rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
+            className="field-input"
+            placeholder=" "
           />
-        </div>
+          <span className="field-label">到达时间（落地戳 · 可选）</span>
+        </label>
       </div>
 
       {error && (
-        <p className="rounded-lg bg-destructive/10 px-4 py-2 text-sm text-red-600">{error}</p>
+        <p className="rounded-md bg-error-container px-4 py-3 text-body-medium text-on-error-container">{error}</p>
       )}
 
       <button
         type="submit"
         disabled={submitting}
-        className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+        className="btn-filled"
       >
         {submitting ? "上传中…" : "发布明信片"}
       </button>

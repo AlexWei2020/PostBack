@@ -95,30 +95,33 @@ export default function AccountClient({
   return (
     <div className="grid gap-8 lg:grid-cols-[minmax(0,360px)_1fr]">
       <section>
-        <div className="mb-4 rounded-lg border border-border bg-card p-4">
-          <p className="text-sm text-muted-foreground">当前登录</p>
-          <p className="mt-1 font-semibold">{nickname}</p>
+        <div className="card-outlined mb-4 p-4">
+          <p className="text-label-medium text-on-surface-variant">当前登录</p>
+          <p className="mt-1 text-title-medium text-on-surface">{nickname}</p>
         </div>
 
-        <form onSubmit={save} className="rounded-lg border border-border bg-card p-4">
-          <label className="mb-2 block text-sm font-medium">常用收件名</label>
-          <textarea
-            value={namesText}
-            onChange={(e) => setNamesText(e.target.value)}
-            rows={8}
-            className="w-full resize-none rounded-lg border border-input bg-background px-3 py-2 text-base outline-none sm:text-sm ring-ring focus:ring-2"
-          />
-          <p className="mt-2 text-xs text-muted-foreground">
+        <form onSubmit={save} className="card-outlined p-4">
+          <label className="field">
+            <textarea
+              value={namesText}
+              onChange={(e) => setNamesText(e.target.value)}
+              rows={8}
+              className="field-input resize-none"
+              placeholder=" "
+            />
+            <span className="field-label">常用收件名</span>
+          </label>
+          <p className="field-support">
             可一行一个，也可用逗号分隔，最多保存 20 个。
           </p>
 
           {message && (
-            <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+            <p className="mt-3 rounded-md bg-success-container px-4 py-3 text-body-medium text-on-success-container">
               {message}
             </p>
           )}
           {error && (
-            <p className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-red-600">
+            <p className="mt-3 rounded-md bg-error-container px-4 py-3 text-body-medium text-on-error-container">
               {error}
             </p>
           )}
@@ -126,7 +129,7 @@ export default function AccountClient({
           <button
             type="submit"
             disabled={busy}
-            className="mt-4 w-full rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-50"
+            className="btn-filled mt-4 w-full"
           >
             {busy ? "保存中…" : "保存收件名"}
           </button>
@@ -135,14 +138,14 @@ export default function AccountClient({
 
       <section>
         <div className="mb-4">
-          <h2 className="text-xl font-semibold tracking-tight">疑似属于我的明信片</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <h2 className="text-title-large text-on-surface">疑似属于我的明信片</h2>
+          <p className="mt-1 text-body-medium text-on-surface-variant">
             根据常用收件名匹配当前待认领记录。
           </p>
         </div>
 
         {matches.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border py-16 text-center text-sm text-muted-foreground">
+          <div className="rounded-md bg-surface-container-low py-16 text-center text-body-medium text-on-surface-variant">
             暂无匹配的待认领明信片。
           </div>
         ) : (
