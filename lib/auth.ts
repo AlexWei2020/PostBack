@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { pool } from "./db";
 
@@ -14,7 +15,8 @@ export type CurrentUser = {
  * Reads the `session` cookie and returns the matching, non-expired user.
  * Returns null when there is no valid session.
  */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+// cache()：同一次服务端渲染里（页面 + Nav 各调用一次）只查一次数据库。
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const cookieStore = await cookies();
   const sessionCookie = cookieStore.get("session");
   if (!sessionCookie) return null;
@@ -32,4 +34,4 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   if (result.rows.length === 0) return null;
   return result.rows[0] as CurrentUser;
-}
+});

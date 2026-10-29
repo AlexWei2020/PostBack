@@ -23,6 +23,20 @@ function normalizeCasdoorUser(info: CasdoorUserInfo) {
   return { id, name, avatar };
 }
 
+// GET：预热。回调页一打开就调用，与浏览器向 Casdoor 换 token 并行进行，
+// 让函数冷启动和数据库连接提前完成，后面的 POST 直接复用热连接。
+export async function GET() {
+  try {
+    await pool.query("select 1");
+  } catch {
+    /* 预热失败不影响登录，POST 会再连一次 */
+  }
+  return new NextResponse(null, {
+    status: 204,
+    headers: { "Cache-Control": "no-store" },
+  });
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -36,18 +50,6 @@ export async function POST(request: Request) {
 
     const casdoorUser = normalizeCasdoorUser(userInfo);
 
-    const user = await pool.query(
-      `
-      insert into users (geekpie_id, nickname, avatar_url)
-      values ($1, $2, $3)
-      on conflict (geekpie_id)
-      do update set nickname = excluded.nickname, avatar_url = excluded.avatar_url
-      returning *
-      `,
-      [casdoorUser.id, casdoorUser.name || null, casdoorUser.avatar || null]
-    );
-
-    const userId = user.rows[0].id;
     const sessionId = randomUUID();
     const expires = new Date();
     expires.setDate(expires.getDate() + 7);
@@ -55,13 +57,31 @@ export async function POST(request: Request) {
       ? new Date(Date.now() + expiresIn * 1000)
       : null;
 
-    await pool.query(
+    // 用户 upsert 与会话写入合并为一条语句：只走一次数据库往返。
+    const created = await pool.query(
       `
+      with u as (
+        insert into users (geekpie_id, nickname, avatar_url)
+        values ($1, $2, $3)
+        on conflict (geekpie_id)
+        do update set nickname = excluded.nickname, avatar_url = excluded.avatar_url
+        returning id
+      )
       insert into sessions (id, user_id, expires_at, casdoor_access_token, casdoor_expires_at)
-      values ($1, $2, $3, $4, $5)
+      select $4, u.id, $5, $6, $7 from u
+      returning id
       `,
-      [sessionId, userId, expires, accessToken, casdoorExpiresAt]
+      [
+        casdoorUser.id,
+        casdoorUser.name || null,
+        casdoorUser.avatar || null,
+        sessionId,
+        expires,
+        accessToken,
+        casdoorExpiresAt,
+      ]
     );
+    if (created.rowCount !== 1) throw new Error("session insert failed");
 
     const secureCookie =
       process.env.PUBLIC_BASE_URL?.startsWith("https://") ??
