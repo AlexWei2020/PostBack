@@ -9,9 +9,16 @@ import type { PostcardCounts } from "@/lib/types";
 // GET /api/postcards?status=available   -> plaza, filtered by status
 // GET /api/postcards?scope=claimed      -> "我的" 里我认领的明信片（分页）
 // GET /api/postcards?scope=uploaded     -> "我的" 里我上传的明信片（分页）
+// 分页参数：pageSize + page，或 pageSize + offset（动态加载用）。
 function positiveInt(value: string | null, fallback: number) {
   const n = Number(value);
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
+}
+
+function nonNegativeInt(value: string | null) {
+  if (value === null || value.trim() === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
 }
 
 export async function GET(request: Request) {
@@ -23,8 +30,10 @@ export async function GET(request: Request) {
   const status = searchParams.get("status");
   const scope = searchParams.get("scope"); // "claimed" | "uploaded" | null (plaza)
   const page = positiveInt(searchParams.get("page"), 1);
-  const pageSize = Math.min(100, positiveInt(searchParams.get("pageSize"), 21));
-  const offset = (page - 1) * pageSize;
+  // 上限 200：前端动态加载后台对齐时会一次重新拉取已加载的整段。
+  const pageSize = Math.min(200, positiveInt(searchParams.get("pageSize"), 21));
+  // offset 优先于 page：动态加载按"已加载张数"续拉，不受批次大小变化影响。
+  const offset = nonNegativeInt(searchParams.get("offset")) ?? (page - 1) * pageSize;
 
   if (scope === "claimed" || scope === "uploaded") {
     const orderBy =

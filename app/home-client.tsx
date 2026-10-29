@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PostcardCard from "@/components/postcard-card";
 import PostcardDetail from "@/components/postcard-detail";
+import LoadMoreFooter from "@/components/load-more-footer";
+import { useLoadMoreSentinel } from "@/lib/use-load-more";
 import type {
   Postcard,
   PostcardCounts,
@@ -16,6 +18,9 @@ const FILTERS: { key: PostcardFilter; label: string }[] = [
   { key: "claimed", label: "已认领" },
   { key: "received", label: "已收到" },
 ];
+
+// 后台对齐一次最多重拉的张数，与接口 pageSize 上限一致。
+const MAX_SYNC_SIZE = 200;
 
 type PostcardsPageResponse = {
   postcards?: Postcard[];
@@ -45,87 +50,127 @@ export default function HomeClient({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
-  const [pageSize, setPageSize] = useState(initialPageSize);
-  const [page, setPage] = useState(1);
+  // 每批加载张数（首屏由服务端渲染同样数量）。
+  const BATCH_SIZE = initialPageSize;
+  // 切换板块时整表重载（变灰 + 顶部提示）。
   const [loadingPage, setLoadingPage] = useState(false);
+  // 翻到底自动追加下一批。
+  const [loadingMore, setLoadingMore] = useState(false);
+  // 乐观操作后的后台对齐进行中；期间暂停追加，避免两次写入互相覆盖。
+  const [syncing, setSyncing] = useState(false);
+  // 追加失败后停止自动加载，改为显示"重试"，避免无限重试刷请求。
+  const [loadMoreFailed, setLoadMoreFailed] = useState(false);
   // 点击筛选后立即高亮（乐观），无需等待请求返回。
   const [pendingFilter, setPendingFilter] = useState<PostcardFilter | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
+  // 每次发起整表请求都递增；过期的追加结果直接丢弃（如加载途中切换了板块）。
+  const requestSeq = useRef(0);
   const activeFilter = pendingFilter ?? filter;
 
   const total = counts[filter];
-  const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  const currentPage = Math.min(page, pageCount);
-  const pageStart = (currentPage - 1) * pageSize;
-  const pageEnd = Math.min(pageStart + postcards.length, total);
-
-  useEffect(() => {
-    setPage((current) => Math.min(current, pageCount));
-  }, [pageCount]);
+  const hasMore = postcards.length < total;
 
   const detail = useMemo(
     () => postcards.find((p) => p.id === detailId) ?? null,
     [postcards, detailId],
   );
 
-  const loadPage = async ({
-    nextFilter = filter,
-    nextPage = currentPage,
-    nextPageSize = pageSize,
-    silent = false,
-  }: {
-    nextFilter?: PostcardFilter;
-    nextPage?: number;
-    nextPageSize?: number;
-    // silent: reconcile in the background after an optimistic action — no
-    // grid dimming, no scroll jump. Used so 认领/签收 feel instant.
-    silent?: boolean;
-  } = {}) => {
-    if (!silent) setLoadingPage(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams({
-        page: String(nextPage),
-        pageSize: String(nextPageSize),
-      });
-      if (nextFilter !== "all") params.set("status", nextFilter);
+  // 后台对齐时需要知道"现在已加载多少张"，而回调可能来自旧的渲染闭包。
+  const loadedCountRef = useRef(postcards.length);
+  useEffect(() => {
+    loadedCountRef.current = postcards.length;
+  }, [postcards.length]);
 
-      const res = await fetch(`/api/postcards?${params.toString()}`);
-      const data = (await res
-        .json()
-        .catch(() => ({}))) as PostcardsPageResponse;
-      if (!res.ok) {
+  const fetchList = async (f: PostcardFilter, offset: number, limit: number) => {
+    const params = new URLSearchParams({
+      offset: String(offset),
+      pageSize: String(limit),
+    });
+    if (f !== "all") params.set("status", f);
+    const res = await fetch(`/api/postcards?${params.toString()}`);
+    const data = (await res.json().catch(() => ({}))) as PostcardsPageResponse;
+    return { ok: res.ok, data };
+  };
+
+  // 从头重新加载列表。
+  // silent: 乐观操作后的后台对齐——重新拉取已加载的整段，不变灰、不跳顶部。
+  const reload = async ({
+    nextFilter = filter,
+    silent = false,
+  }: { nextFilter?: PostcardFilter; silent?: boolean } = {}) => {
+    const seq = ++requestSeq.current;
+    // 新请求会作废旧请求，所以两个标记都按本次请求重新设置。
+    setSyncing(silent);
+    setLoadingPage(!silent);
+    setLoadingMore(false);
+    setError(null);
+    setLoadMoreFailed(false);
+    const limit = silent
+      ? Math.min(MAX_SYNC_SIZE, Math.max(BATCH_SIZE, loadedCountRef.current))
+      : BATCH_SIZE;
+    try {
+      const { ok, data } = await fetchList(nextFilter, 0, limit);
+      if (seq !== requestSeq.current) return;
+      if (!ok) {
         setError(data?.error || "加载失败");
         return;
       }
-
-      const nextCounts = data.counts || counts;
-      const nextTotal = nextCounts[nextFilter];
-      const nextPageCount = Math.max(1, Math.ceil(nextTotal / nextPageSize));
-      const safePage = Math.min(nextPage, nextPageCount);
-      if (safePage !== nextPage) {
-        await loadPage({ nextFilter, nextPage: safePage, nextPageSize, silent });
-        return;
-      }
-
       setFilter(nextFilter);
-      setPageSize(nextPageSize);
-      setPage(safePage);
-      setCounts(nextCounts);
+      setCounts(data.counts || counts);
       setPostcards(data.postcards || []);
-      // 换页/换板块后把列表顶部滚回视野；静默重同步（认领后）不打断滚动。
+      // 换板块后把列表顶部滚回视野；静默对齐（认领后）不打断滚动。
       if (!silent) {
         requestAnimationFrame(() =>
           gridRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
         );
       }
     } catch {
-      if (!silent) setError("网络错误，请重试");
+      if (seq === requestSeq.current && !silent) setError("网络错误，请重试");
     } finally {
-      if (!silent) setLoadingPage(false);
-      setPendingFilter(null);
+      if (seq === requestSeq.current) {
+        setSyncing(false);
+        setLoadingPage(false);
+        setPendingFilter(null);
+      }
     }
   };
+
+  // 翻到底：从已加载张数处续拉下一批，追加到列表末尾。
+  const loadMore = async () => {
+    if (loadingMore || loadingPage || syncing || !hasMore) return;
+    const seq = requestSeq.current;
+    setLoadingMore(true);
+    setLoadMoreFailed(false);
+    try {
+      const { ok, data } = await fetchList(filter, postcards.length, BATCH_SIZE);
+      if (seq !== requestSeq.current) return;
+      if (!ok) {
+        setLoadMoreFailed(true);
+        return;
+      }
+      const batch = data.postcards || [];
+      if (data.counts) setCounts(data.counts);
+      // 期间有新上传会让 offset 错位，按 id 去重防止同一张出现两次。
+      setPostcards((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...batch.filter((p) => !seen.has(p.id))];
+      });
+      // 服务器已无更多数据时，以实际数量为准，停止继续加载。
+      if (batch.length < BATCH_SIZE) {
+        const loaded = postcards.length + batch.length;
+        setCounts((c) => (c[filter] > loaded ? { ...c, [filter]: loaded } : c));
+      }
+    } catch {
+      if (seq === requestSeq.current) setLoadMoreFailed(true);
+    } finally {
+      if (seq === requestSeq.current) setLoadingMore(false);
+    }
+  };
+
+  const sentinelRef = useLoadMoreSentinel(
+    () => loadMore(),
+    hasMore && !loadingPage && !loadingMore && !syncing && !loadMoreFailed,
+  );
 
   // 认领/签收/取消：先本地即时改状态（乐观），再后台静默与服务器对齐。
   // 让点击"秒响应"，不再整格变灰、跳回顶部。
@@ -166,7 +211,7 @@ export default function HomeClient({
     } finally {
       setBusyId(null);
       // 后台对齐：修正计数、分页归属，成功/失败都以服务器为准。
-      loadPage({ silent: true });
+      reload({ silent: true });
     }
   };
 
@@ -184,7 +229,7 @@ export default function HomeClient({
       setError("网络错误，请重试");
     } finally {
       setBusyId(null);
-      loadPage({ silent: true });
+      reload({ silent: true });
     }
   };
 
@@ -224,7 +269,7 @@ export default function HomeClient({
             onClick={() => {
               if (activeFilter === f.key && !loadingPage) return;
               setPendingFilter(f.key);
-              loadPage({ nextFilter: f.key, nextPage: 1 });
+              reload({ nextFilter: f.key });
             }}
             className={`rounded-full px-3.5 py-1.5 text-sm transition disabled:cursor-wait ${
               activeFilter === f.key
@@ -304,59 +349,17 @@ export default function HomeClient({
           onClose={() => setDetailId(null)}
         />
       )}
-      <div className="mt-6 flex flex-col gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-center sm:text-left">
-          显示第 {total === 0 ? 0 : pageStart + 1}-{pageEnd} 张，共 {total} 张
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              aria-label="上一页"
-              onClick={() =>
-                loadPage({ nextPage: Math.max(1, currentPage - 1) })
-              }
-              disabled={currentPage <= 1 || loadingPage}
-              className="grid h-8 w-8 place-items-center rounded-full border border-border text-lg leading-none text-foreground transition hover:border-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              ‹
-            </button>
-            <span className="min-w-16 text-center font-medium text-foreground">
-              {currentPage}/{pageCount}
-            </span>
-            <button
-              type="button"
-              aria-label="下一页"
-              onClick={() =>
-                loadPage({ nextPage: Math.min(pageCount, currentPage + 1) })
-              }
-              disabled={currentPage >= pageCount || loadingPage}
-              className="grid h-8 w-8 place-items-center rounded-full border border-border text-lg leading-none text-foreground transition hover:border-foreground hover:bg-muted disabled:cursor-not-allowed disabled:opacity-35"
-            >
-              ›
-            </button>
-          </div>
-          <label className="flex items-center gap-2">
-            <span>每页</span>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              value={pageSize}
-              onChange={(e) => {
-                const next = Number(e.target.value);
-                if (!Number.isFinite(next)) return;
-                loadPage({
-                  nextPage: 1,
-                  nextPageSize: Math.min(100, Math.max(1, Math.floor(next))),
-                });
-              }}
-              className="w-20 rounded-lg border border-input bg-background px-2 py-1.5 text-base text-foreground outline-none ring-ring focus:ring-2 sm:text-sm"
-            />
-            <span>张</span>
-          </label>
-        </div>
-      </div>
+      {total > 0 && (
+        <LoadMoreFooter
+          sentinelRef={sentinelRef}
+          loaded={postcards.length}
+          total={total}
+          hasMore={hasMore}
+          loadingMore={loadingMore}
+          failed={loadMoreFailed}
+          onRetry={loadMore}
+        />
+      )}
     </div>
   );
 }
