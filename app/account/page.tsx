@@ -2,7 +2,6 @@ import Nav from "@/components/nav";
 import { getCurrentUser } from "@/lib/auth";
 import { pool } from "@/lib/db";
 import { ensureUserRecipientNamesColumn } from "@/lib/schema";
-import type { Postcard } from "@/lib/types";
 import AccountClient from "./account-client";
 
 export const dynamic = "force-dynamic";
@@ -18,42 +17,20 @@ export default async function AccountPage() {
     : { rows: [] };
   const recipientNames = (profile.rows[0]?.recipient_names ?? []) as string[];
 
-  const matches =
-    recipientNames.length > 0
-      ? await pool.query(
-          `
-          select
-            p.*,
-            up.nickname as uploader_nickname,
-            cl.nickname as claimer_nickname
-          from postcards p
-          left join users up on p.uploader_id = up.id
-          left join users cl on p.claimer_id = cl.id
-          where p.status = 'available'
-            and p.claimer_id is null
-            and lower(trim(p.recipient_name)) = any($1::text[])
-          order by p.created_at desc
-          `,
-          [recipientNames.map((name) => name.trim().toLowerCase())]
-        )
-      : { rows: [] };
-
   return (
     <>
       <Nav />
       <main className="app-main">
-        <div className="container">
+        <div className="container max-w-xl">
         <div className="mb-6 pt-2">
           <h1 className="text-headline-medium text-on-surface">我的账户</h1>
           <p className="mt-2 text-body-medium text-on-surface-variant">
-            维护你的常用收件名，系统会汇总可能属于你的待认领明信片。
+            维护你的常用收件名，匹配到的待认领明信片会显示在“我的”页面的“疑似属于我的”中。
           </p>
         </div>
         <AccountClient
           nickname={user.nickname || "已登录"}
           initialRecipientNames={recipientNames}
-          initialMatches={matches.rows as Postcard[]}
-          currentUserId={user.id}
         />
         </div>
       </main>

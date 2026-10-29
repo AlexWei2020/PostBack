@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { pool } from "@/lib/db";
 import { getTotalReceived, ensureSchema } from "@/lib/schema";
 import Nav from "@/components/nav";
+import Icon from "@/components/icon";
 import HomeClient from "./home-client";
 import type { Postcard, PostcardCounts } from "@/lib/types";
 
@@ -64,10 +65,11 @@ export default async function HomePage() {
         <div className="mb-6 pt-2">
           <h1 className="text-headline-medium text-on-surface">明信片广场</h1>
           <p className="mt-2 text-body-medium text-on-surface-variant">
-            ↗️网页右上角点击昵称，进入个人页面，配置常用收件名后可自动匹配 取到明信片后记得确认签收~
+            网页右上角点击昵称，进入个人页面，配置常用收件名后可自动匹配 取到明信片后记得确认签收~
           </p>
           <p className="mt-4 inline-flex h-8 items-center gap-2 rounded-sm bg-tertiary-container px-3 text-label-large text-on-tertiary-container">
-            📮 已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
+            <Icon name="markunread_mailbox" size={18} />
+            已累计签收 <span className="tabular-nums">{totalReceived}</span> 张明信片
           </p>
         </div>
         <HomeClient
