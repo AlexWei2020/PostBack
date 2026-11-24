@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useTransition, type MouseEvent } from "react";
 import Icon, { type IconName } from "./icon";
 import LinearProgress from "./linear-progress";
+import LoginButton from "./login-button";
 import LogoutButton from "./logout-button";
 
 const NAV_ITEMS: { href: string; label: string; icon: IconName; activeIcon: IconName }[] = [
@@ -86,6 +87,11 @@ export default function NavBar({
                 <span className="truncate">{nickname || "已登录"}</span>
               </Link>
               <LogoutButton />
+            </div>
+          )}
+          {!loggedIn && (
+            <div className="ml-auto">
+              <LoginButton label="登录" className="btn-text" />
             </div>
           )}
         </div>

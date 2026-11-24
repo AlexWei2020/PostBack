@@ -7,7 +7,9 @@ export function proxy(request: NextRequest) {
   const session = request.cookies.get("session");
   const { pathname } = request.nextUrl;
 
+  // 广场对访客开放（只显示照片，敏感字段在服务端隐藏）。
   const isPublic =
+    pathname === "/" ||
     pathname === "/login" ||
     pathname === "/about" ||
     pathname === "/help" ||

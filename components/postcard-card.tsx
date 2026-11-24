@@ -3,6 +3,7 @@
 import { memo, useState } from "react";
 import Image from "next/image";
 import { STATUS_LABEL, type Postcard } from "@/lib/types";
+import Icon from "./icon";
 
 // 状态标签用 M3 配色角色：待认领 primary、已认领 tertiary、已收到 success 容器色。
 export const STATUS_STYLE: Record<Postcard["status"], string> = {
@@ -21,9 +22,12 @@ function PostcardCard({
   onCancelClaim,
   onCancelReceive,
   onOpen,
+  guest,
 }: {
   postcard: Postcard;
   currentUserId: string;
+  // 访客视图：只显示照片和状态，收件人等信息以"登录后可见"代替。
+  guest?: boolean;
   busy?: boolean;
   priority?: boolean;
   onClaim?: (id: string) => void;
@@ -56,7 +60,7 @@ function PostcardCard({
         {/* Blob images are on an allowed remote host; unoptimized keeps it simple */}
         <Image
           src={postcard.image_url}
-          alt={`寄给 ${postcard.recipient_name} 的明信片`}
+          alt={guest ? "明信片照片" : `寄给 ${postcard.recipient_name} 的明信片`}
           fill
           priority={priority}
           loading={priority ? undefined : "lazy"}
@@ -70,6 +74,20 @@ function PostcardCard({
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">
+        {guest ? (
+          <div className="flex items-center justify-between gap-2">
+            <p className="flex min-w-0 items-center gap-2 text-body-medium text-on-surface-variant">
+              <Icon name="lock" size={18} />
+              收件人等信息登录后可见
+            </p>
+            <span
+              className={`inline-flex h-6 shrink-0 items-center rounded-sm px-2 text-label-medium ${STATUS_STYLE[postcard.status]}`}
+            >
+              {STATUS_LABEL[postcard.status]}
+            </span>
+          </div>
+        ) : (
+        <>
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <p className="text-label-medium text-on-surface-variant">收件人</p>
@@ -156,6 +174,8 @@ function PostcardCard({
             <p className="text-center text-body-small text-on-surface-variant">已完成</p>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
