@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { STATUS_LABEL, type Postcard, type PostcardUpdateInput } from "@/lib/types";
 import Icon from "@/components/icon";
 import { STATUS_STYLE } from "@/components/postcard-card";
@@ -366,11 +366,12 @@ export default function PostcardDetail({
             </div>
           )}
 
-          {/* 对话框操作区：右对齐文字按钮（md-comp-dialog action） */}
+          {/* 按模式重建操作区，避免编辑按钮在本次点击中变成提交按钮。 */}
           <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
             {editing ? (
-              <>
+              <Fragment key="edit">
                 <button
+                  type="button"
                   onClick={() => setForm(null)}
                   disabled={busy}
                   className="btn-text"
@@ -380,9 +381,9 @@ export default function PostcardDetail({
                 <button type="submit" form="postcard-edit-form" disabled={busy} className="btn-text">
                   {busy ? "保存中…" : "保存"}
                 </button>
-              </>
+              </Fragment>
             ) : (
-              <>
+              <Fragment key="view">
                 {canDelete && !confirmDelete && (
                   <button onClick={() => setConfirmDelete(true)} disabled={busy} className="btn-text mr-auto enabled:text-error">
                     <Icon name="delete" size={18} />
@@ -391,6 +392,7 @@ export default function PostcardDetail({
                 )}
                 {canEdit && (
                   <button
+                    type="button"
                     onClick={() => {
                       setConfirmDelete(false);
                       setForm(formFromPostcard(postcard));
@@ -405,7 +407,7 @@ export default function PostcardDetail({
                 <button onClick={closeDetail} className="btn-text">
                   关闭
                 </button>
-              </>
+              </Fragment>
             )}
           </div>
         </div>
