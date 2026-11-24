@@ -8,10 +8,17 @@ import LinearProgress from "./linear-progress";
 import LoginButton from "./login-button";
 import LogoutButton from "./logout-button";
 
-const NAV_ITEMS: { href: string; label: string; icon: IconName; activeIcon: IconName }[] = [
+// requiresLogin：未登录时不在导航中显示（页面本身也会被 proxy 重定向到登录页）。
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  icon: IconName;
+  activeIcon: IconName;
+  requiresLogin?: boolean;
+}[] = [
   { href: "/", label: "广场", icon: "home", activeIcon: "home_fill" },
-  { href: "/upload", label: "上传", icon: "upload", activeIcon: "upload" },
-  { href: "/mine", label: "我的", icon: "inbox", activeIcon: "inbox_fill" },
+  { href: "/upload", label: "上传", icon: "upload", activeIcon: "upload", requiresLogin: true },
+  { href: "/mine", label: "我的", icon: "inbox", activeIcon: "inbox_fill", requiresLogin: true },
   { href: "/help", label: "帮助", icon: "help", activeIcon: "help_fill" },
   { href: "/about", label: "关于", icon: "info", activeIcon: "info_fill" },
 ];
@@ -36,6 +43,8 @@ export default function NavBar({
       router.push(href);
     });
   };
+
+  const items = NAV_ITEMS.filter((item) => loggedIn || !item.requiresLogin);
 
   const destination = (item: (typeof NAV_ITEMS)[number], variant: "rail" | "bar") => {
     const active = pathname === item.href;
@@ -102,7 +111,7 @@ export default function NavBar({
         aria-label="主导航"
         className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col items-center gap-3 bg-surface pt-20 sm:flex"
       >
-        {NAV_ITEMS.map((item) => destination(item, "rail"))}
+        {items.map((item) => destination(item, "rail"))}
       </nav>
 
       {/* 导航栏：窄屏底部，高 80dp */}
@@ -110,7 +119,7 @@ export default function NavBar({
         aria-label="主导航"
         className="fixed inset-x-0 bottom-0 z-30 flex bg-surface-container sm:hidden"
       >
-        {NAV_ITEMS.map((item) => destination(item, "bar"))}
+        {items.map((item) => destination(item, "bar"))}
       </nav>
     </>
   );
