@@ -25,7 +25,13 @@ async function sha256(input: string) {
   return crypto.subtle.digest("SHA-256", data);
 }
 
-export default function LoginButton() {
+export default function LoginButton({
+  label = "通过 GeekPie 统一身份认证登录",
+  className = "btn-filled w-full",
+}: {
+  label?: string;
+  className?: string;
+} = {}) {
   const handleLogin = async () => {
     const clientId = process.env.NEXT_PUBLIC_CASDOOR_CLIENT_ID;
     const serverUrl = process.env.NEXT_PUBLIC_CASDOOR_SERVER_URL;
@@ -67,9 +73,9 @@ export default function LoginButton() {
   return (
     <button
       onClick={handleLogin}
-      className="btn-filled w-full"
+      className={className}
     >
-      通过 GeekPie 统一身份认证登录
+      {label}
     </button>
   );
 }

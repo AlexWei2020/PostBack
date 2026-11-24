@@ -44,8 +44,10 @@ export default function HomeClient({
   initialPostcards: Postcard[];
   initialCounts: PostcardCounts;
   initialPageSize: number;
-  currentUserId: string;
+  // null 表示未登录访客：只看照片，不能打开详情或操作。
+  currentUserId: string | null;
 }) {
+  const isGuest = currentUserId === null;
   const [postcards, setPostcards] = useState<Postcard[]>(initialPostcards);
   const [counts, setCounts] = useState<PostcardCounts>(initialCounts);
   const [filter, setFilter] = useState<PostcardFilter>("all");
@@ -292,10 +294,14 @@ export default function HomeClient({
         {total === 0 ? (
           <div className="rounded-md bg-surface-container-low py-16 text-center text-body-medium text-on-surface-variant">
             这里还没有明信片。
-            <a href="/upload" className="text-primary underline">
-              上传第一张
-            </a>
-            吧！
+            {!isGuest && (
+              <>
+                <a href="/upload" className="text-primary underline">
+                  上传第一张
+                </a>
+                吧！
+              </>
+            )}
           </div>
         ) : (
           <div
@@ -304,18 +310,22 @@ export default function HomeClient({
             }`}
           >
             {postcards.map((p, index) => (
-              <PostcardCard
-                key={p.id}
-                postcard={p}
-                currentUserId={currentUserId}
-                busy={busyId === p.id}
-                priority={index < 3}
-                onClaim={(id) => act(id, "claim")}
-                onReceive={(id) => act(id, "receive")}
-                onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}
-                onCancelReceive={(id) => actWithMethod(id, "receive", "DELETE")}
-                onOpen={setDetailId}
-              />
+              isGuest ? (
+                <PostcardCard key={p.id} postcard={p} currentUserId="" guest priority={index < 3} />
+              ) : (
+                <PostcardCard
+                  key={p.id}
+                  postcard={p}
+                  currentUserId={currentUserId}
+                  busy={busyId === p.id}
+                  priority={index < 3}
+                  onClaim={(id) => act(id, "claim")}
+                  onReceive={(id) => act(id, "receive")}
+                  onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}
+                  onCancelReceive={(id) => actWithMethod(id, "receive", "DELETE")}
+                  onOpen={setDetailId}
+                />
+              )
             ))}
           </div>
         )}
@@ -324,7 +334,7 @@ export default function HomeClient({
         {loadingPage && <LinearProgress />}
       </div>
 
-      {detail && (
+      {detail && !isGuest && (
         <PostcardDetail
           postcard={detail}
           currentUserId={currentUserId}

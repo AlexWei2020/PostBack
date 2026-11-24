@@ -4,9 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { normalizeImageHash } from "@/lib/postcard-image-hash";
 import { ensureSchema } from "@/lib/schema";
 import { getMineScopeCounts, getRecipientNameKeys, isMineScope, scopeQuery } from "@/lib/mine-scope";
-import type { PostcardCounts } from "@/lib/types";
+import { toGuestPostcard } from "@/lib/guest-postcard";
+import type { Postcard, PostcardCounts } from "@/lib/types";
 
-// GET /api/postcards                    -> plaza, all postcards (newest first)
+// GET /api/postcards                    -> plaza, all postcards (newest first); guests get photo + status only
 // GET /api/postcards?status=available   -> plaza, filtered by status
 // GET /api/postcards?scope=claimed      -> "我的" 里我认领的明信片（分页）
 // GET /api/postcards?scope=uploaded     -> "我的" 里我上传的明信片（分页）
@@ -26,7 +27,6 @@ function nonNegativeInt(value: string | null) {
 export async function GET(request: Request) {
   // getCurrentUser + one-time schema/index check are independent.
   const [user, schema] = await Promise.all([getCurrentUser(), ensureSchema()]);
-  if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status");
@@ -38,6 +38,7 @@ export async function GET(request: Request) {
   const offset = nonNegativeInt(searchParams.get("offset")) ?? (page - 1) * pageSize;
 
   if (isMineScope(scope)) {
+    if (!user) return NextResponse.json({ error: "未登录" }, { status: 401 });
     const nameKeys = await getRecipientNameKeys(user.id);
     const q = scopeQuery(scope, user.id, nameKeys);
     const conditions = [q.where];
@@ -137,11 +138,14 @@ export async function GET(request: Request) {
       ? counts[status as keyof PostcardCounts]
       : counts.all;
 
+  // 访客：只下发照片和状态。
+  const postcards = user ? result.rows : (result.rows as Postcard[]).map(toGuestPostcard);
+
   return NextResponse.json({
-    postcards: result.rows,
+    postcards,
     counts,
     pagination: { page, pageSize, total },
-    currentUserId: user.id,
+    currentUserId: user?.id ?? null,
   });
 }
 
