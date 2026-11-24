@@ -284,7 +284,7 @@ export default function HomeClient({
         ))}
       </div>
 
-      {error && (
+      {error && !detail && (
         <p className="mb-4 rounded-md bg-error-container px-4 py-3 text-body-medium text-on-error-container">
           {error}
         </p>
@@ -305,7 +305,7 @@ export default function HomeClient({
           </div>
         ) : (
           <div
-            className={`grid grid-cols-1 gap-4 transition-opacity sm:grid-cols-2 lg:grid-cols-3 ${
+            className={`grid grid-cols-1 gap-4 transition-opacity medium:grid-cols-2 expanded:grid-cols-3 ${
               loadingPage ? "pointer-events-none opacity-40" : ""
             }`}
           >
@@ -336,9 +336,11 @@ export default function HomeClient({
 
       {detail && !isGuest && (
         <PostcardDetail
+          key={detail.id}
           postcard={detail}
           currentUserId={currentUserId}
           busy={busyId === detail.id}
+          error={error}
           onClaim={(id) => act(id, "claim")}
           onReceive={(id) => act(id, "receive")}
           onCancelClaim={(id) => actWithMethod(id, "claim", "DELETE")}

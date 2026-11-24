@@ -34,7 +34,7 @@ export default function LoadMoreFooter({
         </>
       ) : loadingMore || hasMore ? (
         <>
-          <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-secondary-container border-t-primary" />
+          <span className="h-6 w-6 animate-spin rounded-full border-[3px] border-transparent border-t-primary" />
           <span>
             加载中…（已显示 {loaded}/{total} 张）
           </span>

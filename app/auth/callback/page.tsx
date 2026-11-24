@@ -239,7 +239,7 @@ export default function CasdoorCallback() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 px-6">
       {!failed && (
-        <span className="h-12 w-12 animate-spin rounded-full border-4 border-secondary-container border-t-primary" />
+        <span className="h-12 w-12 animate-spin rounded-full border-4 border-transparent border-t-primary" />
       )}
       <p
         role="status"

@@ -520,7 +520,7 @@ export default function UploadClient() {
         </label>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 medium:grid-cols-2">
         <label className="field">
           <input
             type="date"

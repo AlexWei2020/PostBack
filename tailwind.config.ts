@@ -20,10 +20,16 @@ const colors = Object.fromEntries(
 const config: Config = {
   content: ["./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./lib/**/*.{ts,tsx}"],
   theme: {
+    // M3 窗口尺寸类别：compact <600、medium 600–839、expanded ≥840、large ≥1200
+    screens: {
+      medium: "600px",
+      expanded: "840px",
+      large: "1200px",
+    },
     container: {
       center: true,
-      padding: { DEFAULT: "1rem", sm: "1.5rem" },
-      screens: { "2xl": "1240px" },
+      padding: "1rem",
+      screens: { max: "1240px" },
     },
     extend: {
       colors,
@@ -46,19 +52,19 @@ const config: Config = {
       },
       // M3 字体刻度（字号 / 行高 / 字距）
       fontSize: {
-        "display-small": ["36px", { lineHeight: "44px", letterSpacing: "0" }],
-        "headline-large": ["32px", { lineHeight: "40px", letterSpacing: "0" }],
-        "headline-medium": ["28px", { lineHeight: "36px", letterSpacing: "0" }],
-        "headline-small": ["24px", { lineHeight: "32px", letterSpacing: "0" }],
-        "title-large": ["22px", { lineHeight: "28px", letterSpacing: "0" }],
-        "title-medium": ["16px", { lineHeight: "24px", letterSpacing: "0.15px" }],
-        "title-small": ["14px", { lineHeight: "20px", letterSpacing: "0.1px" }],
-        "body-large": ["16px", { lineHeight: "24px", letterSpacing: "0.5px" }],
-        "body-medium": ["14px", { lineHeight: "20px", letterSpacing: "0.25px" }],
-        "body-small": ["12px", { lineHeight: "16px", letterSpacing: "0.4px" }],
-        "label-large": ["14px", { lineHeight: "20px", letterSpacing: "0.1px" }],
-        "label-medium": ["12px", { lineHeight: "16px", letterSpacing: "0.5px" }],
-        "label-small": ["11px", { lineHeight: "16px", letterSpacing: "0.5px" }],
+        "display-small": ["36px", { lineHeight: "44px", letterSpacing: "0", fontWeight: "400" }],
+        "headline-large": ["32px", { lineHeight: "40px", letterSpacing: "0", fontWeight: "400" }],
+        "headline-medium": ["28px", { lineHeight: "36px", letterSpacing: "0", fontWeight: "400" }],
+        "headline-small": ["24px", { lineHeight: "32px", letterSpacing: "0", fontWeight: "400" }],
+        "title-large": ["22px", { lineHeight: "28px", letterSpacing: "0", fontWeight: "400" }],
+        "title-medium": ["16px", { lineHeight: "24px", letterSpacing: "0.15px", fontWeight: "500" }],
+        "title-small": ["14px", { lineHeight: "20px", letterSpacing: "0.1px", fontWeight: "500" }],
+        "body-large": ["16px", { lineHeight: "24px", letterSpacing: "0.5px", fontWeight: "400" }],
+        "body-medium": ["14px", { lineHeight: "20px", letterSpacing: "0.25px", fontWeight: "400" }],
+        "body-small": ["12px", { lineHeight: "16px", letterSpacing: "0.4px", fontWeight: "400" }],
+        "label-large": ["14px", { lineHeight: "20px", letterSpacing: "0.1px", fontWeight: "500" }],
+        "label-medium": ["12px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "500" }],
+        "label-small": ["11px", { lineHeight: "16px", letterSpacing: "0.5px", fontWeight: "500" }],
       },
       transitionTimingFunction: {
         standard: "cubic-bezier(0.2, 0, 0, 1)",

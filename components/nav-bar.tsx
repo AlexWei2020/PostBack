@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useTransition, type MouseEvent } from "react";
+import { useEffect, useState, useTransition, type MouseEvent } from "react";
 import Icon, { type IconName } from "./icon";
 import LinearProgress from "./linear-progress";
 import LoginButton from "./login-button";
@@ -23,7 +23,7 @@ const NAV_ITEMS: {
   { href: "/about", label: "关于", icon: "info", activeIcon: "info_fill" },
 ];
 
-// M3 布局：顶部应用栏 + 导航（≥640px 为左侧导航轨，窄屏为底部导航栏）。
+// M3 布局：顶部应用栏 + 导航（≥600px 为左侧导航轨，窄屏为底部导航栏）。
 export default function NavBar({
   loggedIn,
   nickname,
@@ -46,6 +46,15 @@ export default function NavBar({
 
   const items = NAV_ITEMS.filter((item) => loggedIn || !item.requiresLogin);
 
+  // M3 顶部应用栏：内容滚动后容器由 surface 变为 surface-container（on-scroll）。
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 0);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const destination = (item: (typeof NAV_ITEMS)[number], variant: "rail" | "bar") => {
     const active = pathname === item.href;
     return (
@@ -54,14 +63,14 @@ export default function NavBar({
         href={item.href}
         onClick={navigate(item.href)}
         aria-current={active ? "page" : undefined}
-        className={`group flex flex-col items-center gap-1 text-label-medium ${
-          variant === "rail" ? "w-20 py-1" : "flex-1 pb-4 pt-3"
-        } ${active ? "font-semibold text-on-surface" : "text-on-surface-variant"}`}
+        className={`flex flex-col items-center gap-1 text-label-medium focus-visible:-outline-offset-4 ${
+          variant === "rail" ? "w-full shrink-0 py-1" : "h-full min-w-0 flex-1 justify-center"
+        } ${active ? "font-bold text-on-surface" : "text-on-surface-variant"}`}
       >
         <span
-          className={`state-layer flex h-8 items-center justify-center rounded-full ${
+          className={`state-layer flex h-8 max-w-full items-center justify-center rounded-full transition-colors duration-200 ease-standard ${
             variant === "rail" ? "w-14" : "w-16"
-          } ${active ? "bg-secondary-container text-on-secondary-container" : ""}`}
+          } ${active ? "bg-secondary-container text-on-secondary-container" : "text-on-surface-variant"}`}
         >
           <Icon name={active ? item.activeIcon : item.icon} />
         </span>
@@ -75,7 +84,11 @@ export default function NavBar({
       {isPending && <LinearProgress />}
 
       {/* 顶部应用栏（small）：高 64dp */}
-      <header className="sticky top-0 z-20 bg-surface sm:pl-20">
+      <header
+        className={`sticky top-0 z-20 transition-colors duration-200 ease-standard medium:pl-20 ${
+          scrolled ? "bg-surface-container" : "bg-surface"
+        }`}
+      >
         <div className="flex h-16 items-center gap-1 px-4">
           <Link href="/" onClick={navigate("/")} className="text-title-large text-on-surface">
             PostBack
@@ -106,18 +119,18 @@ export default function NavBar({
         </div>
       </header>
 
-      {/* 导航轨：宽 80dp */}
+      {/* 导航轨（md-comp-navigation-rail）：宽 80dp、surface、level0；顶部让出 64dp 应用栏 + 8dp */}
       <nav
         aria-label="主导航"
-        className="fixed inset-y-0 left-0 z-30 hidden w-20 flex-col items-center gap-3 bg-surface pt-20 sm:flex"
+        className="fixed bottom-0 left-0 top-16 z-30 hidden w-20 flex-col items-center gap-3 overflow-y-auto bg-surface py-2 medium:flex"
       >
         {items.map((item) => destination(item, "rail"))}
       </nav>
 
-      {/* 导航栏：窄屏底部，高 80dp */}
+      {/* 导航栏（md-comp-navigation-bar）：高 80dp、surface-container、level2 */}
       <nav
         aria-label="主导航"
-        className="fixed inset-x-0 bottom-0 z-30 flex bg-surface-container sm:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 flex h-[calc(5rem+env(safe-area-inset-bottom))] bg-surface-container pb-[env(safe-area-inset-bottom)] shadow-elevation-2 medium:hidden"
       >
         {items.map((item) => destination(item, "bar"))}
       </nav>

@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { STATUS_LABEL, type Postcard, type PostcardUpdateInput } from "@/lib/types";
 import Icon from "@/components/icon";
 import { STATUS_STYLE } from "@/components/postcard-card";
@@ -55,6 +55,7 @@ export default function PostcardDetail({
   postcard,
   currentUserId,
   busy,
+  error,
   onClaim,
   onReceive,
   onCancelClaim,
@@ -68,6 +69,7 @@ export default function PostcardDetail({
   postcard: Postcard;
   currentUserId: string;
   busy?: boolean;
+  error?: string | null;
   onClaim?: (id: string) => void;
   onReceive?: (id: string) => void;
   onCancelClaim?: (id: string) => void;
@@ -78,10 +80,11 @@ export default function PostcardDetail({
   onDelete?: (id: string) => void;
   onClose: () => void;
 }) {
-  const [zoomed, setZoomed] = useState(false);
+  const detailDialog = useRef<HTMLDialogElement>(null);
+  const zoomDialog = useRef<HTMLDialogElement>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState<PostcardUpdateInput>(() => formFromPostcard(postcard));
+  const [form, setForm] = useState<PostcardUpdateInput | null>(null);
+  const editing = form !== null;
 
   const isUploader = postcard.uploader_id === currentUserId;
   const isClaimer = postcard.claimer_id === currentUserId;
@@ -94,24 +97,29 @@ export default function PostcardDetail({
     (!!onHide || !!onUnhide);
 
   useEffect(() => {
-    setConfirmDelete(false);
-    setEditing(false);
-    setForm(formFromPostcard(postcard));
-  }, [postcard.id]);
+    const dialog = detailDialog.current;
+    const preview = zoomDialog.current;
+    dialog?.showModal();
+    return () => {
+      preview?.close();
+      dialog?.close();
+    };
+  }, []);
 
-  useEffect(() => {
-    if (!editing) setForm(formFromPostcard(postcard));
-  }, [editing, postcard]);
+  const closeDetail = () => {
+    detailDialog.current?.close();
+    onClose();
+  };
 
   const setField =
     (key: keyof PostcardUpdateInput) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setForm((prev) => ({ ...prev, [key]: e.target.value }));
+      setForm((prev) => prev && { ...prev, [key]: e.target.value });
     };
 
   const saveEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!onUpdate) return;
+    if (!onUpdate || !form) return;
 
     const ok = await onUpdate(postcard.id, {
       recipientName: form.recipientName.trim(),
@@ -120,36 +128,29 @@ export default function PostcardDetail({
       sentAt: form.sentAt || undefined,
       arrivedAt: form.arrivedAt || undefined,
     });
-    if (ok !== false) setEditing(false);
+    if (ok !== false) setForm(null);
   };
 
-  // ESC closes the zoom first, then the modal.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      if (zoomed) setZoomed(false);
-      else onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [zoomed, onClose]);
-
   return (
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center bg-scrim/[0.32] p-4"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
+    <>
+      <dialog
+        ref={detailDialog}
         aria-label={`寄给 ${postcard.recipient_name} 的明信片`}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-surface-container-high shadow-elevation-3"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg overflow-y-auto overscroll-contain rounded-xl bg-surface-container-high text-on-surface shadow-elevation-3 backdrop:bg-scrim/[0.32]"
+        onCancel={(e) => {
+          e.preventDefault();
+          closeDetail();
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) closeDetail();
+        }}
       >
-        {/* 图片：点击放大 */}
-        <div
-          className="relative aspect-[3/2] w-full cursor-zoom-in overflow-hidden bg-surface-container-highest"
-          onClick={() => setZoomed(true)}
+        <button
+          type="button"
+          className="relative block aspect-[3/2] w-full cursor-zoom-in overflow-hidden bg-surface-container-highest focus-visible:-outline-offset-4"
+          onClick={() => zoomDialog.current?.showModal()}
+          aria-label="放大明信片照片"
+          aria-haspopup="dialog"
         >
           <Image
             src={postcard.image_url}
@@ -163,10 +164,15 @@ export default function PostcardDetail({
             <Icon name="zoom_in" size={18} />
             点击放大
           </span>
-        </div>
+        </button>
 
         <div className="p-6 [--field-bg:var(--md-surface-container-high)]">
-          {editing ? (
+          {error && (
+            <p role="alert" className="mb-4 rounded-md bg-error-container px-4 py-3 text-body-medium text-on-error-container">
+              {error}
+            </p>
+          )}
+          {form ? (
             <form id="postcard-edit-form" onSubmit={saveEdit} className="flex flex-col gap-4">
               <label className="field">
                 <input
@@ -230,7 +236,7 @@ export default function PostcardDetail({
                 </label>
               </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 medium:grid-cols-2">
                 <label className="field">
                   <input
                     type="date"
@@ -294,179 +300,142 @@ export default function PostcardDetail({
             </>
           )}
 
-          {/* 操作区 */}
-          <div className="mt-6 flex flex-col gap-2">
-            {!editing && postcard.status === "available" && onClaim && (
-              <button
-                onClick={() => onClaim(postcard.id)}
-                disabled={busy}
-                className="btn-filled w-full"
-              >
-                {busy ? "处理中…" : "认领这张"}
-              </button>
-            )}
+          {/* 主操作：至多一个 filled 按钮（M3：一个页面/对话框只突出一个主操作） */}
+          {!editing && postcard.status === "available" && onClaim && (
+            <button
+              onClick={() => onClaim(postcard.id)}
+              disabled={busy}
+              className="btn-filled mt-6"
+            >
+              {busy ? "处理中…" : "认领这张"}
+            </button>
+          )}
+          {!editing && postcard.status === "claimed" && isClaimer && onReceive && (
+            <button
+              onClick={() => onReceive(postcard.id)}
+              disabled={busy}
+              className="btn-filled mt-6"
+            >
+              {busy ? "处理中…" : "确认已收到"}
+            </button>
+          )}
 
-            {!editing && postcard.status === "claimed" && isClaimer && onReceive && (
-              <button
-                onClick={() => onReceive(postcard.id)}
-                disabled={busy}
-                className="btn-filled w-full"
-              >
-                {busy ? "处理中…" : "确认已收到"}
-              </button>
-            )}
-
-            {!editing && postcard.status === "claimed" && isClaimer && onCancelClaim && (
-              <button
-                onClick={() => onCancelClaim(postcard.id)}
-                disabled={busy}
-                className="btn-outlined w-full"
-              >
-                {busy ? "处理中…" : "取消认领"}
-              </button>
-            )}
-
-            {!editing && postcard.status === "received" && isClaimer && onCancelReceive && (
-              <button
-                onClick={() => onCancelReceive(postcard.id)}
-                disabled={busy}
-                className="btn-outlined w-full"
-              >
-                {busy ? "处理中…" : "取消签收"}
-              </button>
-            )}
-
-            {!editing && postcard.status === "received" && isClaimer && onCancelClaim && (
-              <button
-                onClick={() => onCancelClaim(postcard.id)}
-                disabled={busy}
-                className="btn-text w-full !text-error"
-              >
-                {busy ? "处理中…" : "取消认领"}
-              </button>
-            )}
-
-            {!editing && canHideToggle && (
-              postcard.hidden_by_claimer
-                ? onUnhide && (
-                    <button
-                      onClick={() => onUnhide(postcard.id)}
-                      disabled={busy}
-                      className="btn-outlined w-full"
-                    >
-                      {busy ? "处理中…" : "取消隐藏（重新在广场展示）"}
-                    </button>
-                  )
-                : onHide && (
-                    <button
-                      onClick={() => onHide(postcard.id)}
-                      disabled={busy}
-                      className="btn-outlined w-full"
-                    >
-                      {busy ? "处理中…" : "隐藏（仅自己可见）"}
-                    </button>
-                  )
-            )}
-
-            {canEdit && !editing && (
-              <button
-                onClick={() => {
-                  setConfirmDelete(false);
-                  setEditing(true);
-                }}
-                disabled={busy}
-                className="btn-outlined w-full"
-              >
-                编辑这张明信片
-              </button>
-            )}
-
-            {editing && (
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  form="postcard-edit-form"
-                  disabled={busy}
-                  className="btn-filled flex-1"
-                >
-                  {busy ? "保存中…" : "保存修改"}
+          {/* 次要操作：outlined 按钮，可换行 */}
+          {!editing && (
+            <div className="mt-3 flex flex-wrap gap-2 empty:hidden">
+              {postcard.status === "received" && isClaimer && onCancelReceive && (
+                <button onClick={() => onCancelReceive(postcard.id)} disabled={busy} className="btn-outlined">
+                  {busy ? "处理中…" : "取消签收"}
                 </button>
+              )}
+              {(postcard.status === "claimed" || postcard.status === "received") && isClaimer && onCancelClaim && (
                 <button
-                  onClick={() => {
-                    setForm(formFromPostcard(postcard));
-                    setEditing(false);
-                  }}
+                  onClick={() => onCancelClaim(postcard.id)}
                   disabled={busy}
-                  className="btn-outlined flex-1"
+                  className={postcard.status === "received" ? "btn-text enabled:text-error" : "btn-outlined"}
+                >
+                  {busy ? "处理中…" : "取消认领"}
+                </button>
+              )}
+              {canHideToggle &&
+                (postcard.hidden_by_claimer
+                  ? onUnhide && (
+                      <button onClick={() => onUnhide(postcard.id)} disabled={busy} className="btn-outlined">
+                        {busy ? "处理中…" : "取消隐藏（重新在广场展示）"}
+                      </button>
+                    )
+                  : onHide && (
+                      <button onClick={() => onHide(postcard.id)} disabled={busy} className="btn-outlined">
+                        {busy ? "处理中…" : "隐藏（仅自己可见）"}
+                      </button>
+                    ))}
+            </div>
+          )}
+
+          {canDelete && !editing && confirmDelete && (
+            <div className="mt-4 rounded-md bg-error-container p-4 text-on-error-container">
+              <p className="text-body-medium">删除后无法恢复，确认删除？</p>
+              <div className="mt-2 flex justify-end gap-2">
+                <button onClick={() => setConfirmDelete(false)} disabled={busy} className="btn-text">
+                  取消
+                </button>
+                <button onClick={() => onDelete?.(postcard.id)} disabled={busy} className="btn-error">
+                  {busy ? "删除中…" : "确认删除"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 对话框操作区：右对齐文字按钮（md-comp-dialog action） */}
+          <div className="mt-6 flex flex-wrap items-center justify-end gap-2">
+            {editing ? (
+              <>
+                <button
+                  onClick={() => setForm(null)}
+                  disabled={busy}
+                  className="btn-text"
                 >
                   取消
                 </button>
-              </div>
-            )}
-
-            {canDelete && !editing && !confirmDelete && (
-              <button
-                onClick={() => setConfirmDelete(true)}
-                disabled={busy}
-                className="btn-text w-full !text-error"
-              >
-                删除这条记录
-              </button>
-            )}
-
-            {canDelete && !editing && confirmDelete && (
-              <div className="flex flex-col gap-3 rounded-md bg-error-container p-4">
-                <p className="text-body-medium text-on-error-container">删除后无法恢复，确认删除？</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => onDelete?.(postcard.id)}
-                    disabled={busy}
-                    className="btn-error flex-1"
-                  >
-                    {busy ? "删除中…" : "确认删除"}
+                <button type="submit" form="postcard-edit-form" disabled={busy} className="btn-text">
+                  {busy ? "保存中…" : "保存"}
+                </button>
+              </>
+            ) : (
+              <>
+                {canDelete && !confirmDelete && (
+                  <button onClick={() => setConfirmDelete(true)} disabled={busy} className="btn-text mr-auto enabled:text-error">
+                    <Icon name="delete" size={18} />
+                    删除
                   </button>
+                )}
+                {canEdit && (
                   <button
-                    onClick={() => setConfirmDelete(false)}
+                    onClick={() => {
+                      setConfirmDelete(false);
+                      setForm(formFromPostcard(postcard));
+                    }}
                     disabled={busy}
-                    className="btn-text flex-1"
+                    className="btn-text"
                   >
-                    取消
+                    <Icon name="edit" size={18} />
+                    编辑
                   </button>
-                </div>
-              </div>
+                )}
+                <button onClick={closeDetail} className="btn-text">
+                  关闭
+                </button>
+              </>
             )}
-
-            <button
-              onClick={onClose}
-              className="btn-text w-full"
-            >
-              关闭
-            </button>
           </div>
         </div>
-      </div>
+      </dialog>
 
       {/* 全屏放大预览 */}
-      {zoomed && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/90 p-4"
-          onClick={(e) => {
-            e.stopPropagation();
-            setZoomed(false);
-          }}
+      <dialog
+        ref={zoomDialog}
+        aria-label="明信片照片预览"
+        className="fixed inset-0 h-full max-h-none w-full max-w-none bg-transparent p-4 backdrop:bg-scrim/90"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) zoomDialog.current?.close();
+        }}
+      >
+        <button
+          type="button"
+          aria-label="关闭照片预览"
+          className="relative block h-full w-full cursor-zoom-out focus-visible:-outline-offset-4"
+          onClick={() => zoomDialog.current?.close()}
         >
-          <div className="relative h-full w-full">
-            <Image
-              src={postcard.image_url}
-              alt={`寄给 ${postcard.recipient_name} 的明信片`}
-              fill
-              unoptimized
-              sizes="100vw"
-              className="cursor-zoom-out object-contain"
-            />
-          </div>
-        </div>
-      )}
-    </div>
+          <Image
+            src={postcard.image_url}
+            alt={`寄给 ${postcard.recipient_name} 的明信片`}
+            fill
+            unoptimized
+            sizes="100vw"
+            className="object-contain"
+          />
+        </button>
+      </dialog>
+    </>
   );
 }

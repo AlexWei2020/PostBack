@@ -65,12 +65,20 @@ function PostcardCard({
           priority={priority}
           loading={priority ? undefined : "lazy"}
           quality={55}
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 320px"
+          sizes="(max-width: 599px) 100vw, (max-width: 839px) 50vw, (max-width: 1319px) 33vw, 387px"
           onLoad={() => setImgLoaded(true)}
           className={`object-cover transition-opacity duration-300 ease-standard ${
             imgLoaded ? "opacity-100" : "opacity-0"
           }`}
         />
+        {onOpen && (
+          <button
+            type="button"
+            aria-haspopup="dialog"
+            aria-label={`查看寄给 ${postcard.recipient_name} 的明信片`}
+            className="absolute inset-0 focus-visible:-outline-offset-4"
+          />
+        )}
       </div>
 
       <div className="flex flex-1 flex-col gap-1 p-4">

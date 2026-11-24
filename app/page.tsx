@@ -67,12 +67,12 @@ export default async function HomePage() {
         <div className="mb-6 pt-2">
           <h1 className="text-headline-medium text-on-surface">明信片广场</h1>
           {isGuest ? (
-            <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-3 rounded-md bg-secondary-container px-4 py-3 text-on-secondary-container">
-              <Icon name="lock" />
-              <p className="min-w-0 flex-1 text-body-medium">
+            <div className="card-outlined mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 py-3 pl-4 pr-2">
+              <Icon name="lock" className="text-on-surface-variant" />
+              <p className="min-w-0 flex-1 text-body-medium text-on-surface">
                 当前未登录，仅显示明信片照片。登录后可查看收件人、取件地点等详细信息，并认领属于你的明信片。
               </p>
-              <LoginButton label="登录" className="btn-filled" />
+              <LoginButton label="登录" className="btn-text" />
             </div>
           ) : (
             <p className="mt-2 text-body-medium text-on-surface-variant">
